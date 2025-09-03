@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      webhook_endpoints: {
+        Row: {
+          created_at: string
+          description: string | null
+          endpoint_id: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          endpoint_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          endpoint_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      webhooks: {
+        Row: {
+          body: Json | null
+          content_type: string | null
+          created_at: string
+          headers: Json | null
+          id: string
+          method: string
+          query_params: Json | null
+          source_ip: string | null
+          url_path: string
+          user_agent: string | null
+        }
+        Insert: {
+          body?: Json | null
+          content_type?: string | null
+          created_at?: string
+          headers?: Json | null
+          id?: string
+          method?: string
+          query_params?: Json | null
+          source_ip?: string | null
+          url_path: string
+          user_agent?: string | null
+        }
+        Update: {
+          body?: Json | null
+          content_type?: string | null
+          created_at?: string
+          headers?: Json | null
+          id?: string
+          method?: string
+          query_params?: Json | null
+          source_ip?: string | null
+          url_path?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
