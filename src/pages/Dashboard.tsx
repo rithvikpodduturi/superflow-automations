@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { Copy, Plus, Trash2, Eye } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface WebhookEndpoint {
   id: string
@@ -283,77 +284,94 @@ const Dashboard = () => {
                 No webhook requests yet. Send a POST request to one of your endpoints to see it here.
               </p>
             ) : (
-              <div className="space-y-2">
-                {requests.map((request) => (
-                  <div key={request.id} className="border rounded-lg p-3 flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Path</TableHead>
+                    <TableHead>Source IP</TableHead>
+                    <TableHead>Content Type</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {requests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell>
                         <Badge variant={request.method === 'POST' ? 'default' : 'secondary'}>
                           {request.method}
                         </Badge>
-                        <code className="text-sm">{request.url_path}</code>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(request.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      {request.source_ip && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          From: {request.source_ip}
-                        </p>
-                      )}
-                    </div>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedRequest(request)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
-                        <DialogHeader>
-                          <DialogTitle>Webhook Request Details</DialogTitle>
-                          <DialogDescription>
-                            {request.method} request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Headers</Label>
-                            <Textarea
-                              value={JSON.stringify(request.headers, null, 2)}
-                              readOnly
-                              className="font-mono text-sm h-32"
-                            />
-                          </div>
-                          {request.body && (
-                            <div>
-                              <Label>Body</Label>
-                              <Textarea
-                                value={typeof request.body === 'string' ? request.body : JSON.stringify(request.body, null, 2)}
-                                readOnly
-                                className="font-mono text-sm h-48"
-                              />
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-sm bg-muted px-2 py-1 rounded">
+                          {request.url_path}
+                        </code>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {request.source_ip || 'Unknown'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {request.content_type || 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(request.created_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedRequest(request)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+                            <DialogHeader>
+                              <DialogTitle>Webhook Request Details</DialogTitle>
+                              <DialogDescription>
+                                {request.method} request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Headers</Label>
+                                <Textarea
+                                  value={JSON.stringify(request.headers, null, 2)}
+                                  readOnly
+                                  className="font-mono text-sm h-32"
+                                />
+                              </div>
+                              {request.body && (
+                                <div>
+                                  <Label>Body</Label>
+                                  <Textarea
+                                    value={typeof request.body === 'string' ? request.body : JSON.stringify(request.body, null, 2)}
+                                    readOnly
+                                    className="font-mono text-sm h-48"
+                                  />
+                                </div>
+                              )}
+                              {request.query_params && (
+                                <div>
+                                  <Label>Query Parameters</Label>
+                                  <Textarea
+                                    value={JSON.stringify(request.query_params, null, 2)}
+                                    readOnly
+                                    className="font-mono text-sm h-24"
+                                  />
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {request.query_params && (
-                            <div>
-                              <Label>Query Parameters</Label>
-                              <Textarea
-                                value={JSON.stringify(request.query_params, null, 2)}
-                                readOnly
-                                className="font-mono text-sm h-24"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                ))}
-              </div>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
