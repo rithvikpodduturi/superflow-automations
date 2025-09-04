@@ -31,6 +31,21 @@ serve(async (req) => {
       })
     }
 
+    // Verify the endpoint exists and get the user_id
+    const { data: endpoint, error: endpointError } = await supabase
+      .from('webhook_endpoints')
+      .select('*')
+      .eq('endpoint_id', endpointId)
+      .eq('is_active', true)
+      .single()
+
+    if (endpointError || !endpoint) {
+      return new Response(JSON.stringify({ error: 'Endpoint not found or inactive' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Get request headers
     const headers: Record<string, string> = {}
     req.headers.forEach((value, key) => {
@@ -63,7 +78,7 @@ serve(async (req) => {
       }
     }
 
-    // Store webhook data
+    // Store webhook data with user_id from the endpoint
     const { error: insertError } = await supabase
       .from('webhooks')
       .insert({
@@ -74,7 +89,8 @@ serve(async (req) => {
         query_params: Object.keys(queryParams).length > 0 ? queryParams : null,
         source_ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
         user_agent: req.headers.get('user-agent'),
-        content_type: contentType
+        content_type: contentType,
+        user_id: endpoint.user_id
       })
 
     if (insertError) {

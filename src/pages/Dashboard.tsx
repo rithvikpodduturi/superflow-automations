@@ -1,182 +1,287 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '@/integrations/supabase/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { useToast } from '@/hooks/use-toast'
-import { Copy, Plus, Trash2, Eye } from 'lucide-react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Copy, Plus, Trash2, Eye, LogOut, User } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 
 interface WebhookEndpoint {
-  id: string
-  name: string
-  endpoint_id: string
-  description: string
-  is_active: boolean
-  created_at: string
+  id: string;
+  name: string;
+  endpoint_id: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+  user_id: string;
 }
 
 interface WebhookRequest {
-  id: string
-  url_path: string
-  method: string
-  headers: any
-  body: any
-  query_params: any
-  source_ip: string
-  user_agent: string
-  content_type: string
-  created_at: string
+  id: string;
+  url_path: string;
+  method: string;
+  headers: any;
+  body: any;
+  query_params: any;
+  source_ip: string;
+  user_agent: string;
+  content_type: string;
+  created_at: string;
+  user_id: string;
 }
 
 const Dashboard = () => {
-  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([])
-  const [requests, setRequests] = useState<WebhookRequest[]>([])
-  const [newEndpoint, setNewEndpoint] = useState({ name: '', description: '' })
-  const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null)
-  const { toast } = useToast()
+  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
+  const [requests, setRequests] = useState<WebhookRequest[]>([]);
+  const [newEndpoint, setNewEndpoint] = useState({ name: '', description: '' });
+  const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { user, loading: authLoading, signOut } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    loadEndpoints()
-    loadRequests()
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('webhook-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'webhooks'
-        },
-        (payload) => {
-          setRequests(prev => [payload.new as WebhookRequest, ...prev])
-          toast({
-            title: "New webhook received!",
-            description: `${payload.new.method} request to ${payload.new.url_path}`,
-          })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+    if (authLoading) return;
+    
+    if (!user) {
+      navigate('/auth');
+      return;
     }
-  }, [])
+    
+    fetchUserRole();
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user && userRole !== null) {
+      loadEndpoints();
+      loadRequests();
+
+      // Subscribe to real-time updates for user's webhooks
+      const channel = supabase
+        .channel('webhook-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'webhooks'
+          },
+          (payload) => {
+            const newRequest = payload.new as WebhookRequest;
+            // Only show updates for current user's data (or all if admin)
+            if (userRole === 'admin' || newRequest.user_id === user.id) {
+              setRequests(prev => [newRequest, ...prev]);
+              toast({
+                title: "New webhook received!",
+                description: `${newRequest.method} request to ${newRequest.url_path}`,
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user, userRole, toast]);
+
+  const fetchUserRole = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (data) {
+      setUserRole(data.role);
+    } else {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   const loadEndpoints = async () => {
-    const { data, error } = await supabase
+    if (!user) return;
+    
+    let query = supabase
       .from('webhook_endpoints')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
+    
+    // Customers only see their own endpoints, admins see all
+    if (userRole !== 'admin') {
+      query = query.eq('user_id', user.id);
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
       toast({
         title: "Error loading endpoints",
         description: error.message,
         variant: "destructive"
-      })
+      });
     } else {
-      setEndpoints(data || [])
+      setEndpoints(data || []);
     }
-  }
+  };
 
   const loadRequests = async () => {
-    const { data, error } = await supabase
+    if (!user) return;
+    
+    let query = supabase
       .from('webhooks')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(50);
+    
+    // Customers only see their own requests, admins see all
+    if (userRole !== 'admin') {
+      query = query.eq('user_id', user.id);
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
       toast({
         title: "Error loading requests",
         description: error.message,
         variant: "destructive"
-      })
+      });
     } else {
-      setRequests(data || [])
+      setRequests(data || []);
     }
-  }
+  };
 
   const createEndpoint = async () => {
+    if (!user) return;
+    
     if (!newEndpoint.name) {
       toast({
         title: "Name required",
         description: "Please enter a name for the endpoint",
         variant: "destructive"
-      })
-      return
+      });
+      return;
     }
 
-    const endpointId = crypto.randomUUID().slice(0, 8)
+    const endpointId = crypto.randomUUID().slice(0, 8);
     
     const { error } = await supabase
       .from('webhook_endpoints')
       .insert({
         name: newEndpoint.name,
         endpoint_id: endpointId,
-        description: newEndpoint.description
-      })
+        description: newEndpoint.description,
+        user_id: user.id
+      });
 
     if (error) {
       toast({
         title: "Error creating endpoint",
         description: error.message,
         variant: "destructive"
-      })
+      });
     } else {
       toast({
         title: "Endpoint created!",
         description: "Your new webhook endpoint is ready to use",
-      })
-      setNewEndpoint({ name: '', description: '' })
-      loadEndpoints()
+      });
+      setNewEndpoint({ name: '', description: '' });
+      loadEndpoints();
     }
-  }
+  };
 
   const copyWebhookUrl = (endpointId: string) => {
-    const url = `https://hucfqmowvhusotacdyxt.supabase.co/functions/v1/webhook-capture/${endpointId}`
-    navigator.clipboard.writeText(url)
+    const url = `https://hucfqmowvhusotacdyxt.supabase.co/functions/v1/webhook-capture/${endpointId}`;
+    navigator.clipboard.writeText(url);
     toast({
       title: "URL copied!",
       description: "Webhook URL copied to clipboard",
-    })
-  }
+    });
+  };
 
   const deleteEndpoint = async (id: string) => {
     const { error } = await supabase
       .from('webhook_endpoints')
       .delete()
-      .eq('id', id)
+      .eq('id', id);
 
     if (error) {
       toast({
         title: "Error deleting endpoint",
         description: error.message,
         variant: "destructive"
-      })
+      });
     } else {
       toast({
         title: "Endpoint deleted",
         description: "Webhook endpoint removed successfully",
-      })
-      loadEndpoints()
+      });
+      loadEndpoints();
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  if (authLoading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Loading...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Webhook Dashboard</h1>
-          <p className="text-muted-foreground">Manage your webhook endpoints and view incoming requests</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Webhook Dashboard</h1>
+            <p className="text-muted-foreground">Manage your webhook endpoints and view incoming requests</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span className="text-sm text-muted-foreground">
+                {user.email}
+              </span>
+              {userRole && <Badge variant="secondary">{userRole}</Badge>}
+            </div>
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
+
+        {/* Admin Notice */}
+        {userRole === 'admin' && (
+          <Alert>
+            <AlertDescription>
+              You are signed in as an administrator. You can view all endpoints and webhook requests across all users.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Create New Endpoint */}
         <Card>
@@ -377,7 +482,7 @@ const Dashboard = () => {
         </Card>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;
