@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Plus, Trash2, Eye, LogOut, User } from 'lucide-react';
+import { Copy, Plus, Trash2, Eye, LogOut, User, Filter } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 
 interface WebhookEndpoint {
   id: string;
@@ -44,6 +45,7 @@ const Dashboard = () => {
   const [newEndpoint, setNewEndpoint] = useState({ name: '', description: '' });
   const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [showGetRequests, setShowGetRequests] = useState(true);
   const { toast } = useToast();
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -232,6 +234,29 @@ const Dashboard = () => {
     }
   };
 
+  const parseFormData = (body: any): Record<string, string> => {
+    if (typeof body === 'string') {
+      const params = new URLSearchParams(body);
+      const result: Record<string, string> = {};
+      for (const [key, value] of params.entries()) {
+        result[key] = decodeURIComponent(value);
+      }
+      return result;
+    }
+    return body || {};
+  };
+
+  const formatRequestBody = (request: WebhookRequest) => {
+    if (request.content_type?.includes('application/x-www-form-urlencoded')) {
+      const parsed = parseFormData(request.body);
+      return JSON.stringify(parsed, null, 2);
+    }
+    return typeof request.body === 'string' ? request.body : JSON.stringify(request.body, null, 2);
+  };
+
+  const getRequests = requests.filter(req => req.method === 'GET');
+  const postRequests = requests.filter(req => req.method === 'POST');
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -375,24 +400,23 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Webhook Requests */}
+        {/* POST Requests */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Webhook Requests</CardTitle>
+            <CardTitle>POST Requests</CardTitle>
             <CardDescription>
-              {requests.length} request{requests.length !== 1 ? 's' : ''} captured
+              {postRequests.length} POST request{postRequests.length !== 1 ? 's' : ''} captured
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {requests.length === 0 ? (
+            {postRequests.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
-                No webhook requests yet. Send a POST request to one of your endpoints to see it here.
+                No POST requests yet. Send a POST request to one of your endpoints to see it here.
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Method</TableHead>
                     <TableHead>Path</TableHead>
                     <TableHead>Source IP</TableHead>
                     <TableHead>Content Type</TableHead>
@@ -401,13 +425,8 @@ const Dashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {requests.map((request) => (
+                  {postRequests.map((request) => (
                     <TableRow key={request.id}>
-                      <TableCell>
-                        <Badge variant={request.method === 'POST' ? 'default' : 'secondary'}>
-                          {request.method}
-                        </Badge>
-                      </TableCell>
                       <TableCell>
                         <code className="text-sm bg-muted px-2 py-1 rounded">
                           {request.url_path}
@@ -435,9 +454,9 @@ const Dashboard = () => {
                           </DialogTrigger>
                           <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
                             <DialogHeader>
-                              <DialogTitle>Webhook Request Details</DialogTitle>
+                              <DialogTitle>POST Request Details</DialogTitle>
                               <DialogDescription>
-                                {request.method} request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
+                                POST request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
@@ -451,9 +470,9 @@ const Dashboard = () => {
                               </div>
                               {request.body && (
                                 <div>
-                                  <Label>Body</Label>
+                                  <Label>Form Data</Label>
                                   <Textarea
-                                    value={typeof request.body === 'string' ? request.body : JSON.stringify(request.body, null, 2)}
+                                    value={formatRequestBody(request)}
                                     readOnly
                                     className="font-mono text-sm h-48"
                                   />
@@ -479,6 +498,119 @@ const Dashboard = () => {
               </Table>
             )}
           </CardContent>
+        </Card>
+
+        {/* GET Requests */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>GET Requests</CardTitle>
+                <CardDescription>
+                  {getRequests.length} GET request{getRequests.length !== 1 ? 's' : ''} captured
+                </CardDescription>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4" />
+                <Label htmlFor="show-get">Show GET requests</Label>
+                <Switch
+                  id="show-get"
+                  checked={showGetRequests}
+                  onCheckedChange={setShowGetRequests}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          {showGetRequests && (
+            <CardContent>
+              {getRequests.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No GET requests yet.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Path</TableHead>
+                      <TableHead>Source IP</TableHead>
+                      <TableHead>User Agent</TableHead>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead className="w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {getRequests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell>
+                          <code className="text-sm bg-muted px-2 py-1 rounded">
+                            {request.url_path}
+                          </code>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {request.source_ip || 'Unknown'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                          {request.user_agent || 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(request.created_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedRequest(request)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+                              <DialogHeader>
+                                <DialogTitle>GET Request Details</DialogTitle>
+                                <DialogDescription>
+                                  GET request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label>Headers</Label>
+                                  <Textarea
+                                    value={JSON.stringify(request.headers, null, 2)}
+                                    readOnly
+                                    className="font-mono text-sm h-32"
+                                  />
+                                </div>
+                                {request.query_params && (
+                                  <div>
+                                    <Label>Query Parameters</Label>
+                                    <Textarea
+                                      value={JSON.stringify(request.query_params, null, 2)}
+                                      readOnly
+                                      className="font-mono text-sm h-24"
+                                    />
+                                  </div>
+                                )}
+                                <div>
+                                  <Label>User Agent</Label>
+                                  <Textarea
+                                    value={request.user_agent || 'N/A'}
+                                    readOnly
+                                    className="font-mono text-sm h-16"
+                                  />
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          )}
         </Card>
       </div>
     </div>
