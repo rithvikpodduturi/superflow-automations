@@ -452,44 +452,77 @@ const Dashboard = () => {
                               <Eye className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
-                            <DialogHeader>
-                              <DialogTitle>POST Request Details</DialogTitle>
-                              <DialogDescription>
-                                POST request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <div>
-                                <Label>Headers</Label>
-                                <Textarea
-                                  value={JSON.stringify(request.headers, null, 2)}
-                                  readOnly
-                                  className="font-mono text-sm h-32"
-                                />
+                            <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+                              <DialogHeader>
+                                <DialogTitle>POST Request Details</DialogTitle>
+                                <DialogDescription>
+                                  POST request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-6">
+                                {/* Form Data */}
+                                {request.body && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                      <Label className="text-lg font-semibold">Form Data</Label>
+                                      <Badge variant="outline">{Object.keys(parseFormData(request.body)).length} fields</Badge>
+                                    </div>
+                                    <div className="border rounded-lg overflow-hidden">
+                                      <div className="max-h-96 overflow-y-auto">
+                                        {Object.entries(parseFormData(request.body)).map(([key, value], index) => (
+                                          <div key={key} className={`flex border-b last:border-b-0 ${index % 2 === 0 ? 'bg-muted/30' : 'bg-background'}`}>
+                                            <div className="w-1/3 p-4 font-medium text-muted-foreground border-r bg-muted/50">
+                                              {key}
+                                            </div>
+                                            <div className="flex-1 p-4">
+                                              {key === 'email' && value.includes('@') ? (
+                                                <a href={`mailto:${value}`} className="text-blue-600 hover:underline">
+                                                  {value}
+                                                </a>
+                                              ) : key === 'phone' && (value.startsWith('+') || value.match(/^\d+$/)) ? (
+                                                <a href={`tel:${value}`} className="text-blue-600 hover:underline">
+                                                  {value}
+                                                </a>
+                                              ) : key === 'page' && value.startsWith('http') ? (
+                                                <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                  {value}
+                                                </a>
+                                              ) : key === 'created' && !isNaN(Number(value)) ? (
+                                                <span>{new Date(Number(value)).toLocaleString()}</span>
+                                              ) : (
+                                                <span className="break-all">{value}</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Headers */}
+                                <div>
+                                  <Label className="text-lg font-semibold">Headers</Label>
+                                  <Textarea
+                                    value={JSON.stringify(request.headers, null, 2)}
+                                    readOnly
+                                    className="font-mono text-sm h-32 mt-2"
+                                  />
+                                </div>
+                                
+                                {/* Query Parameters */}
+                                {request.query_params && (
+                                  <div>
+                                    <Label className="text-lg font-semibold">Query Parameters</Label>
+                                    <Textarea
+                                      value={JSON.stringify(request.query_params, null, 2)}
+                                      readOnly
+                                      className="font-mono text-sm h-24 mt-2"
+                                    />
+                                  </div>
+                                )}
                               </div>
-                              {request.body && (
-                                <div>
-                                  <Label>Form Data</Label>
-                                  <Textarea
-                                    value={formatRequestBody(request)}
-                                    readOnly
-                                    className="font-mono text-sm h-48"
-                                  />
-                                </div>
-                              )}
-                              {request.query_params && (
-                                <div>
-                                  <Label>Query Parameters</Label>
-                                  <Textarea
-                                    value={JSON.stringify(request.query_params, null, 2)}
-                                    readOnly
-                                    className="font-mono text-sm h-24"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </DialogContent>
+                            </DialogContent>
                         </Dialog>
                       </TableCell>
                     </TableRow>
