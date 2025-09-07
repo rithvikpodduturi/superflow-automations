@@ -417,41 +417,55 @@ const Dashboard = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Path</TableHead>
-                    <TableHead>Source IP</TableHead>
-                    <TableHead>Content Type</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
                     <TableHead>Timestamp</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {postRequests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell>
-                        <code className="text-sm bg-muted px-2 py-1 rounded">
-                          {request.url_path}
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {request.source_ip || 'Unknown'}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {request.content_type || 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(request.created_at).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedRequest(request)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
+                  {postRequests.map((request) => {
+                    const formData = parseFormData(request.body);
+                    return (
+                      <TableRow key={request.id}>
+                        <TableCell>
+                          <span className="font-medium">
+                            {formData.name || 'N/A'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {formData.email ? (
+                            <a href={`mailto:${formData.email}`} className="text-blue-600 hover:underline">
+                              {formData.email}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {formData.phone ? (
+                            <a href={`tel:${formData.phone}`} className="text-blue-600 hover:underline">
+                              {formData.phone}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(request.created_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedRequest(request)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
                             <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
                               <DialogHeader>
                                 <DialogTitle>POST Request Details</DialogTitle>
@@ -460,6 +474,29 @@ const Dashboard = () => {
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-6">
+                                {/* Request Info */}
+                                <div>
+                                  <Label className="text-lg font-semibold">Request Information</Label>
+                                  <div className="border rounded-lg mt-2 overflow-hidden">
+                                    <div className="flex border-b bg-muted/50">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Path</div>
+                                      <div className="flex-1 p-3"><code>{request.url_path}</code></div>
+                                    </div>
+                                    <div className="flex border-b bg-background">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Source IP</div>
+                                      <div className="flex-1 p-3">{request.source_ip || 'Unknown'}</div>
+                                    </div>
+                                    <div className="flex border-b bg-muted/30">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Content Type</div>
+                                      <div className="flex-1 p-3">{request.content_type || 'N/A'}</div>
+                                    </div>
+                                    <div className="flex bg-background">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">User Agent</div>
+                                      <div className="flex-1 p-3 break-all">{request.user_agent || 'N/A'}</div>
+                                    </div>
+                                  </div>
+                                </div>
+
                                 {/* Form Data */}
                                 {request.body && (
                                   <div>
@@ -523,10 +560,11 @@ const Dashboard = () => {
                                 )}
                               </div>
                             </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
