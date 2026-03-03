@@ -10,148 +10,20 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "14.4"
   }
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          email: string | null
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          email?: string | null
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          email?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-      webhook_endpoints: {
-        Row: {
-          created_at: string
-          description: string | null
-          endpoint_id: string
-          id: string
-          is_active: boolean
-          name: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          endpoint_id: string
-          id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          endpoint_id?: string
-          id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      webhooks: {
-        Row: {
-          body: Json | null
-          content_type: string | null
-          created_at: string
-          headers: Json | null
-          id: string
-          method: string
-          query_params: Json | null
-          source_ip: string | null
-          url_path: string
-          user_agent: string | null
-          user_id: string | null
-        }
-        Insert: {
-          body?: Json | null
-          content_type?: string | null
-          created_at?: string
-          headers?: Json | null
-          id?: string
-          method?: string
-          query_params?: Json | null
-          source_ip?: string | null
-          url_path: string
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          body?: Json | null
-          content_type?: string | null
-          created_at?: string
-          headers?: Json | null
-          id?: string
-          method?: string
-          query_params?: Json | null
-          source_ip?: string | null
-          url_path?: string
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "customer"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -278,8 +150,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "customer"],
-    },
+    Enums: {},
   },
 } as const
