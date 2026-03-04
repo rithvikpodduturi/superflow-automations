@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -20,8 +19,6 @@ serve(async (req) => {
 
     const url = new URL(req.url)
     const pathSegments = url.pathname.split('/').filter(Boolean)
-    
-    // Extract endpoint ID from path (e.g., /webhook-capture/abc123)
     const endpointId = pathSegments[pathSegments.length - 1]
     
     if (!endpointId || endpointId === 'webhook-capture') {
@@ -31,7 +28,7 @@ serve(async (req) => {
       })
     }
 
-    // Verify the endpoint exists and get the user_id
+    // Verify the endpoint exists
     const { data: endpoint, error: endpointError } = await supabase
       .from('webhook_endpoints')
       .select('*')
@@ -44,6 +41,17 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Check API key authentication if configured
+    if (endpoint.api_key) {
+      const providedKey = req.headers.get('x-api-key') || req.headers.get('authorization')?.replace('Bearer ', '')
+      if (providedKey !== endpoint.api_key) {
+        return new Response(JSON.stringify({ error: 'Unauthorized - invalid API key' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     // Get request headers
@@ -74,11 +82,10 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error('Error parsing request body:', error)
-        body = await req.text()
       }
     }
 
-    // Store webhook data with user_id from the endpoint
+    // Store webhook data
     const { error: insertError } = await supabase
       .from('webhooks')
       .insert({
@@ -101,14 +108,87 @@ serve(async (req) => {
       })
     }
 
-    // Return success response
-    return new Response(JSON.stringify({ 
+    // Auto-notify via email if enabled
+    if (endpoint.notify_on_receive) {
+      try {
+        // Get SMTP config
+        const { data: smtpConfig } = await supabase
+          .from('smtp_configurations')
+          .select('*')
+          .eq('user_id', endpoint.user_id)
+          .eq('is_active', true)
+          .single()
+
+        if (smtpConfig) {
+          // Fire and forget - call the send-notification function internally
+          const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`
+          fetch(notifyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              user_id: endpoint.user_id,
+              subject: `🔔 New ${req.method} webhook received on "${endpoint.name || endpointId}"`,
+              body: `A new ${req.method} request was received on your webhook endpoint "${endpoint.name || endpointId}".\n\nPath: ${url.pathname}\nSource IP: ${req.headers.get('x-forwarded-for') || 'Unknown'}\nContent-Type: ${contentType || 'N/A'}\nTimestamp: ${new Date().toISOString()}\n\nCheck your dashboard for full details.`,
+              to: smtpConfig.smtp_email,
+            }),
+          }).catch(err => console.error('Notification send error:', err))
+        }
+
+        // Notify via Slack/Discord channels
+        const { data: channels } = await supabase
+          .from('notification_channels')
+          .select('*')
+          .eq('user_id', endpoint.user_id)
+          .eq('is_active', true)
+
+        if (channels && channels.length > 0) {
+          for (const channel of channels) {
+            try {
+              const message = `🔔 New ${req.method} webhook received on "${endpoint.name || endpointId}"\nPath: ${url.pathname}\nSource: ${req.headers.get('x-forwarded-for') || 'Unknown'}\nTime: ${new Date().toISOString()}`
+              
+              if (channel.channel_type === 'slack') {
+                fetch(channel.webhook_url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: message }),
+                }).catch(err => console.error('Slack notify error:', err))
+              } else if (channel.channel_type === 'discord') {
+                fetch(channel.webhook_url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ content: message }),
+                }).catch(err => console.error('Discord notify error:', err))
+              }
+            } catch (err) {
+              console.error('Channel notify error:', err)
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Notification error:', err)
+      }
+    }
+
+    // Return custom response if configured
+    const responseHeaders: Record<string, string> = { ...corsHeaders, 'Content-Type': 'application/json' }
+    if (endpoint.response_headers && typeof endpoint.response_headers === 'object') {
+      Object.entries(endpoint.response_headers).forEach(([key, value]) => {
+        responseHeaders[key] = String(value)
+      })
+    }
+
+    const responseBody = endpoint.response_body || JSON.stringify({ 
       success: true, 
       message: 'Webhook received successfully',
       timestamp: new Date().toISOString()
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+
+    return new Response(responseBody, {
+      status: endpoint.response_status_code || 200,
+      headers: responseHeaders,
     })
 
   } catch (error) {

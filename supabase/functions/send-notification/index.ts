@@ -18,7 +18,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the user from the auth header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Authorization required' }), {
@@ -28,6 +27,71 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '')
+    
+    // Support both user tokens and service role key
+    let userId: string
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (token === serviceRoleKey) {
+      // Called internally from webhook-capture with service role
+      const body = await req.json()
+      userId = body.user_id
+      
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'user_id required for service role calls' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Get SMTP config for the user
+      const { data: smtpConfig, error: smtpError } = await supabase
+        .from('smtp_configurations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single()
+
+      if (smtpError || !smtpConfig) {
+        return new Response(JSON.stringify({ error: 'No active SMTP configuration found' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const { subject, body: emailBody, to } = body
+      const recipient = to || smtpConfig.smtp_email
+
+      const client = new SmtpClient()
+      const connectConfig: any = {
+        hostname: smtpConfig.smtp_host,
+        port: smtpConfig.smtp_port,
+        username: smtpConfig.smtp_username,
+        password: smtpConfig.smtp_password,
+      }
+
+      if (smtpConfig.use_tls) {
+        await client.connectTLS(connectConfig)
+      } else {
+        await client.connect(connectConfig)
+      }
+
+      await client.send({
+        from: smtpConfig.smtp_email,
+        to: recipient,
+        subject: subject,
+        content: emailBody,
+      })
+
+      await client.close()
+
+      return new Response(JSON.stringify({ success: true, message: 'Email sent successfully' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Regular user token flow
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
@@ -37,7 +101,6 @@ serve(async (req) => {
       })
     }
 
-    // Get user's SMTP config
     const { data: smtpConfig, error: smtpError } = await supabase
       .from('smtp_configurations')
       .select('*')
@@ -52,9 +115,9 @@ serve(async (req) => {
       })
     }
 
-    const { subject, body, to } = await req.json()
+    const { subject, body: emailBody, to } = await req.json()
 
-    if (!subject || !body) {
+    if (!subject || !emailBody) {
       return new Response(JSON.stringify({ error: 'Subject and body are required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -63,9 +126,7 @@ serve(async (req) => {
 
     const recipient = to || smtpConfig.smtp_email
 
-    // Send email via SMTP
     const client = new SmtpClient()
-
     const connectConfig: any = {
       hostname: smtpConfig.smtp_host,
       port: smtpConfig.smtp_port,
@@ -83,15 +144,12 @@ serve(async (req) => {
       from: smtpConfig.smtp_email,
       to: recipient,
       subject: subject,
-      content: body,
+      content: emailBody,
     })
 
     await client.close()
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Email sent successfully' 
-    }), {
+    return new Response(JSON.stringify({ success: true, message: 'Email sent successfully' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
