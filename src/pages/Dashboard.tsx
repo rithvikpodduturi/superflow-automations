@@ -1,20 +1,24 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Copy, Plus, Trash2, Eye, LogOut, User, Filter, Mail, Settings } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Copy, Plus, Trash2, LogOut, User, Mail, Settings, Activity, BarChart3, Shield, Bell } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { WebhookTable } from "@/components/dashboard/WebhookTable";
+import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
+import { NotificationChannels } from "@/components/dashboard/NotificationChannels";
 
 interface WebhookEndpoint {
   id: string;
@@ -24,6 +28,11 @@ interface WebhookEndpoint {
   is_active: boolean;
   created_at: string;
   user_id: string;
+  response_status_code: number;
+  response_headers: any;
+  response_body: string;
+  api_key: string | null;
+  notify_on_receive: boolean;
 }
 
 interface WebhookRequest {
@@ -49,207 +58,123 @@ interface SmtpConfig {
   smtp_password: string;
   use_tls: boolean;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
+}
+
+interface NotificationChannel {
+  id: string;
+  channel_type: string;
+  webhook_url: string;
+  channel_name: string | null;
+  is_active: boolean;
 }
 
 const Dashboard = () => {
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
   const [requests, setRequests] = useState<WebhookRequest[]>([]);
-  const [newEndpoint, setNewEndpoint] = useState({ name: '', description: '' });
-  const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null);
+  const [newEndpoint, setNewEndpoint] = useState({ name: "", description: "" });
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [showGetRequests, setShowGetRequests] = useState(true);
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfig | null>(null);
   const [smtpForm, setSmtpForm] = useState({
-    smtp_host: '',
-    smtp_port: 587,
-    smtp_username: '',
-    smtp_email: '',
-    smtp_password: '',
-    use_tls: true,
+    smtp_host: "", smtp_port: 587, smtp_username: "", smtp_email: "", smtp_password: "", use_tls: true,
   });
   const [smtpDialogOpen, setSmtpDialogOpen] = useState(false);
   const [smtpLoading, setSmtpLoading] = useState(false);
-  const [notifyOnWebhook, setNotifyOnWebhook] = useState(false);
+  const [channels, setChannels] = useState<NotificationChannel[]>([]);
+  const [endpointConfigDialog, setEndpointConfigDialog] = useState<WebhookEndpoint | null>(null);
+  const [endpointConfig, setEndpointConfig] = useState({
+    response_status_code: 200,
+    response_headers: "{}",
+    response_body: '{"success": true}',
+    api_key: "",
+    notify_on_receive: false,
+  });
   const { toast } = useToast();
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (authLoading) return;
-    
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    
+    if (!user) { navigate("/auth"); return; }
     fetchUserRole();
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user && userRole !== null) {
-      loadEndpoints();
-      loadRequests();
-      loadSmtpConfig();
-
+      loadAll();
       const channel = supabase
-        .channel('webhook-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'webhooks'
-          },
-          (payload) => {
-            const newRequest = payload.new as WebhookRequest;
-            if (userRole === 'admin' || newRequest.user_id === user.id) {
-              setRequests(prev => [newRequest, ...prev]);
-              toast({
-                title: "New webhook received!",
-                description: `${newRequest.method} request to ${newRequest.url_path}`,
-              });
-            }
+        .channel("webhook-updates")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "webhooks" }, (payload) => {
+          const newReq = payload.new as WebhookRequest;
+          if (userRole === "super_admin" || newReq.user_id === user.id) {
+            setRequests((prev) => [newReq, ...prev]);
+            toast({ title: "New webhook received!", description: `${newReq.method} request` });
           }
-        )
+        })
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      return () => { supabase.removeChannel(channel); };
     }
   }, [user, userRole, toast]);
 
+  const loadAll = () => {
+    loadEndpoints();
+    loadRequests();
+    loadSmtpConfig();
+    loadChannels();
+  };
+
   const fetchUserRole = async () => {
     if (!user) return;
-    
-    const { data, error } = await (supabase as any)
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-    
-    if (data) {
-      setUserRole(data.role);
-    } else {
-      setUserRole('user');
-    }
+    const { data } = await (supabase as any).from("user_roles").select("role").eq("user_id", user.id).single();
+    setUserRole(data?.role || "user");
   };
 
   const loadEndpoints = async () => {
     if (!user) return;
-    
-    let query = (supabase as any)
-      .from('webhook_endpoints')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (userRole !== 'admin') {
-      query = query.eq('user_id', user.id);
-    }
-    
-    const { data, error } = await query;
-
-    if (error) {
-      toast({
-        title: "Error loading endpoints",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      setEndpoints(data || []);
-    }
+    let query = (supabase as any).from("webhook_endpoints").select("*").order("created_at", { ascending: false });
+    if (userRole !== "super_admin") query = query.eq("user_id", user.id);
+    const { data } = await query;
+    setEndpoints(data || []);
   };
 
   const loadRequests = async () => {
     if (!user) return;
-    
-    let query = (supabase as any)
-      .from('webhooks')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    
-    if (userRole !== 'admin') {
-      query = query.eq('user_id', user.id);
-    }
-    
-    const { data, error } = await query;
-
-    if (error) {
-      toast({
-        title: "Error loading requests",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      setRequests(data || []);
-    }
+    let query = (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false }).limit(500);
+    if (userRole !== "super_admin") query = query.eq("user_id", user.id);
+    const { data } = await query;
+    setRequests(data || []);
   };
 
   const loadSmtpConfig = async () => {
     if (!user) return;
-
-    const { data, error } = await (supabase as any)
-      .from('smtp_configurations')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-
+    const { data } = await (supabase as any).from("smtp_configurations").select("*").eq("user_id", user.id).single();
     if (data) {
       setSmtpConfig(data);
-      setSmtpForm({
-        smtp_host: data.smtp_host,
-        smtp_port: data.smtp_port,
-        smtp_username: data.smtp_username,
-        smtp_email: data.smtp_email,
-        smtp_password: data.smtp_password,
-        use_tls: data.use_tls,
-      });
+      setSmtpForm({ smtp_host: data.smtp_host, smtp_port: data.smtp_port, smtp_username: data.smtp_username, smtp_email: data.smtp_email, smtp_password: data.smtp_password, use_tls: data.use_tls });
     }
+  };
+
+  const loadChannels = async () => {
+    if (!user) return;
+    const { data } = await (supabase as any).from("notification_channels").select("*").eq("user_id", user.id);
+    setChannels(data || []);
   };
 
   const saveSmtpConfig = async () => {
     if (!user) return;
     setSmtpLoading(true);
-
     try {
       if (smtpConfig) {
-        const { error } = await (supabase as any)
-          .from('smtp_configurations')
-          .update({
-            smtp_host: smtpForm.smtp_host,
-            smtp_port: smtpForm.smtp_port,
-            smtp_username: smtpForm.smtp_username,
-            smtp_email: smtpForm.smtp_email,
-            smtp_password: smtpForm.smtp_password,
-            use_tls: smtpForm.use_tls,
-          })
-          .eq('id', smtpConfig.id);
-
+        const { error } = await (supabase as any).from("smtp_configurations").update(smtpForm).eq("id", smtpConfig.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase as any)
-          .from('smtp_configurations')
-          .insert({
-            user_id: user.id,
-            smtp_host: smtpForm.smtp_host,
-            smtp_port: smtpForm.smtp_port,
-            smtp_username: smtpForm.smtp_username,
-            smtp_email: smtpForm.smtp_email,
-            smtp_password: smtpForm.smtp_password,
-            use_tls: smtpForm.use_tls,
-          });
-
+        const { error } = await (supabase as any).from("smtp_configurations").insert({ ...smtpForm, user_id: user.id });
         if (error) throw error;
       }
-
-      toast({ title: "SMTP configuration saved!", description: "Your email notification settings have been updated." });
+      toast({ title: "SMTP saved!" });
       setSmtpDialogOpen(false);
       loadSmtpConfig();
-    } catch (error: any) {
-      toast({ title: "Error saving SMTP config", description: error.message, variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setSmtpLoading(false);
     }
@@ -257,700 +182,354 @@ const Dashboard = () => {
 
   const deleteSmtpConfig = async () => {
     if (!smtpConfig) return;
-
-    const { error } = await (supabase as any)
-      .from('smtp_configurations')
-      .delete()
-      .eq('id', smtpConfig.id);
-
-    if (error) {
-      toast({ title: "Error deleting SMTP config", description: error.message, variant: "destructive" });
-    } else {
-      setSmtpConfig(null);
-      setSmtpForm({ smtp_host: '', smtp_port: 587, smtp_username: '', smtp_email: '', smtp_password: '', use_tls: true });
-      toast({ title: "SMTP configuration removed" });
-    }
+    await (supabase as any).from("smtp_configurations").delete().eq("id", smtpConfig.id);
+    setSmtpConfig(null);
+    setSmtpForm({ smtp_host: "", smtp_port: 587, smtp_username: "", smtp_email: "", smtp_password: "", use_tls: true });
+    toast({ title: "SMTP removed" });
   };
 
   const sendTestEmail = async () => {
     if (!user) return;
-
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/send-notification`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            subject: 'Test Email from Webhook Dashboard',
-            body: 'This is a test email to verify your SMTP configuration is working correctly.',
-            to: smtpConfig?.smtp_email,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
-        toast({ title: "Test email sent!", description: `Check your inbox at ${smtpConfig?.smtp_email}` });
-      } else {
-        toast({ title: "Failed to send test email", description: result.error || 'Unknown error', variant: "destructive" });
-      }
-    } catch (error: any) {
-      toast({ title: "Error sending test email", description: error.message, variant: "destructive" });
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ subject: "Test Email", body: "SMTP is working!", to: smtpConfig?.smtp_email }),
+      });
+      const result = await res.json();
+      toast(res.ok ? { title: "Test email sent!" } : { title: "Failed", description: result.error, variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
     }
   };
 
   const createEndpoint = async () => {
-    if (!user) return;
-    
-    if (!newEndpoint.name) {
-      toast({
-        title: "Name required",
-        description: "Please enter a name for the endpoint",
-        variant: "destructive"
-      });
+    if (!user || !newEndpoint.name) {
+      toast({ title: "Name required", variant: "destructive" });
       return;
     }
-
     const endpointId = crypto.randomUUID().slice(0, 8);
-    
-    const { error } = await (supabase as any)
-      .from('webhook_endpoints')
-      .insert({
-        name: newEndpoint.name,
-        endpoint_id: endpointId,
-        description: newEndpoint.description,
-        user_id: user.id
-      });
-
+    const { error } = await (supabase as any).from("webhook_endpoints").insert({
+      name: newEndpoint.name, endpoint_id: endpointId, description: newEndpoint.description, user_id: user.id,
+    });
     if (error) {
-      toast({
-        title: "Error creating endpoint",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({
-        title: "Endpoint created!",
-        description: "Your new webhook endpoint is ready to use",
-      });
-      setNewEndpoint({ name: '', description: '' });
+      toast({ title: "Endpoint created!" });
+      setNewEndpoint({ name: "", description: "" });
       loadEndpoints();
     }
-  };
-
-  const copyWebhookUrl = (endpointId: string) => {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const url = `https://${projectId}.supabase.co/functions/v1/webhook-capture/${endpointId}`;
-    navigator.clipboard.writeText(url);
-    toast({
-      title: "URL copied!",
-      description: "Webhook URL copied to clipboard",
-    });
   };
 
   const deleteEndpoint = async (id: string) => {
-    const { error } = await (supabase as any)
-      .from('webhook_endpoints')
-      .delete()
-      .eq('id', id);
+    const { error } = await (supabase as any).from("webhook_endpoints").delete().eq("id", id);
+    if (!error) { toast({ title: "Endpoint deleted" }); loadEndpoints(); }
+  };
 
-    if (error) {
-      toast({
-        title: "Error deleting endpoint",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Endpoint deleted",
-        description: "Webhook endpoint removed successfully",
-      });
+  const copyUrl = (eid: string) => {
+    const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/webhook-capture/${eid}`;
+    navigator.clipboard.writeText(url);
+    toast({ title: "URL copied!" });
+  };
+
+  const openEndpointConfig = (ep: WebhookEndpoint) => {
+    setEndpointConfigDialog(ep);
+    setEndpointConfig({
+      response_status_code: ep.response_status_code || 200,
+      response_headers: JSON.stringify(ep.response_headers || {}, null, 2),
+      response_body: ep.response_body || '{"success": true}',
+      api_key: ep.api_key || "",
+      notify_on_receive: ep.notify_on_receive || false,
+    });
+  };
+
+  const saveEndpointConfig = async () => {
+    if (!endpointConfigDialog) return;
+    let parsedHeaders = {};
+    try { parsedHeaders = JSON.parse(endpointConfig.response_headers); } catch {}
+    const { error } = await (supabase as any).from("webhook_endpoints").update({
+      response_status_code: endpointConfig.response_status_code,
+      response_headers: parsedHeaders,
+      response_body: endpointConfig.response_body,
+      api_key: endpointConfig.api_key || null,
+      notify_on_receive: endpointConfig.notify_on_receive,
+    }).eq("id", endpointConfigDialog.id);
+    if (!error) {
+      toast({ title: "Endpoint config saved!" });
+      setEndpointConfigDialog(null);
       loadEndpoints();
+    } else {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
-  const parseFormData = (body: any): Record<string, string> => {
-    if (typeof body === 'string') {
-      const params = new URLSearchParams(body);
-      const result: Record<string, string> = {};
-      for (const [key, value] of params.entries()) {
-        result[key] = decodeURIComponent(value);
-      }
-      return result;
-    }
-    return body || {};
-  };
-
-  const getRequests = requests.filter(req => req.method === 'GET');
-  const postRequests = requests.filter(req => req.method === 'POST');
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
+  // Request counts per endpoint
+  const requestCountByEndpoint = (endpointId: string) => {
+    return requests.filter((r) => r.url_path?.includes(endpointId)).length;
   };
 
   if (authLoading) {
-    return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Loading...</h2>
-        </div>
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen"><h2 className="text-2xl font-bold">Loading...</h2></div>;
   }
-
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">Webhook Dashboard</h1>
-            <p className="text-muted-foreground">Manage your webhook endpoints and view incoming requests</p>
+            <p className="text-muted-foreground">Manage endpoints, monitor requests, and analyze data</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              <span className="text-sm text-muted-foreground">
-                {user.email}
-              </span>
+              <span className="text-sm text-muted-foreground hidden md:inline">{user.email}</span>
               {userRole && <Badge variant="secondary">{userRole}</Badge>}
             </div>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+            <Button variant="outline" onClick={async () => { await signOut(); navigate("/"); }}>
+              <LogOut className="h-4 w-4 mr-2" /> Sign Out
             </Button>
           </div>
         </div>
 
-        {userRole === 'admin' && (
-          <Alert>
-            <AlertDescription>
-              You are signed in as an administrator. You can view all endpoints and webhook requests across all users.
-            </AlertDescription>
-          </Alert>
+        {userRole === "super_admin" && (
+          <Alert><AlertDescription>Super admin mode — viewing all data across users.</AlertDescription></Alert>
         )}
 
-        {/* SMTP Configuration */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Email Notifications (SMTP)
-                </CardTitle>
-                <CardDescription>
-                  Configure your SMTP settings to receive email notifications for incoming webhooks
-                </CardDescription>
-              </div>
+        {/* Stats cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
               <div className="flex items-center gap-2">
-                {smtpConfig && (
-                  <>
-                    <Badge variant={smtpConfig.is_active ? "default" : "secondary"}>
-                      {smtpConfig.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                    <Button variant="outline" size="sm" onClick={sendTestEmail}>
-                      Send Test Email
-                    </Button>
-                  </>
-                )}
-                <Dialog open={smtpDialogOpen} onOpenChange={setSmtpDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant={smtpConfig ? "outline" : "default"} size="sm">
-                      <Settings className="h-4 w-4 mr-2" />
-                      {smtpConfig ? "Edit SMTP" : "Add SMTP"}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>{smtpConfig ? "Edit" : "Add"} SMTP Configuration</DialogTitle>
-                      <DialogDescription>
-                        Enter your SMTP server details to receive email notifications
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="smtp_host">SMTP Host</Label>
-                          <Input
-                            id="smtp_host"
-                            placeholder="smtp.gmail.com"
-                            value={smtpForm.smtp_host}
-                            onChange={(e) => setSmtpForm(prev => ({ ...prev, smtp_host: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="smtp_port">Port</Label>
-                          <Input
-                            id="smtp_port"
-                            type="number"
-                            placeholder="587"
-                            value={smtpForm.smtp_port}
-                            onChange={(e) => setSmtpForm(prev => ({ ...prev, smtp_port: parseInt(e.target.value) || 587 }))}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="smtp_email">Email Address</Label>
-                        <Input
-                          id="smtp_email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={smtpForm.smtp_email}
-                          onChange={(e) => setSmtpForm(prev => ({ ...prev, smtp_email: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="smtp_username">Username</Label>
-                        <Input
-                          id="smtp_username"
-                          placeholder="your-username"
-                          value={smtpForm.smtp_username}
-                          onChange={(e) => setSmtpForm(prev => ({ ...prev, smtp_username: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="smtp_password">Password / App Password</Label>
-                        <Input
-                          id="smtp_password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={smtpForm.smtp_password}
-                          onChange={(e) => setSmtpForm(prev => ({ ...prev, smtp_password: e.target.value }))}
-                        />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="use_tls"
-                          checked={smtpForm.use_tls}
-                          onCheckedChange={(checked) => setSmtpForm(prev => ({ ...prev, use_tls: checked === true }))}
-                        />
-                        <Label htmlFor="use_tls">Use TLS/SSL</Label>
-                      </div>
-                      <div className="flex justify-between pt-2">
-                        {smtpConfig && (
-                          <Button variant="destructive" onClick={deleteSmtpConfig}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove
-                          </Button>
-                        )}
-                        <Button
-                          className="ml-auto"
-                          onClick={saveSmtpConfig}
-                          disabled={smtpLoading || !smtpForm.smtp_host || !smtpForm.smtp_email || !smtpForm.smtp_password}
-                        >
-                          {smtpLoading ? "Saving..." : "Save Configuration"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </CardHeader>
-          {smtpConfig && (
-            <CardContent>
-              <div className="border rounded-lg overflow-hidden">
-                <div className="flex border-b bg-muted/50">
-                  <div className="w-1/4 p-3 font-medium text-muted-foreground border-r">Host</div>
-                  <div className="flex-1 p-3">{smtpConfig.smtp_host}:{smtpConfig.smtp_port}</div>
-                </div>
-                <div className="flex border-b bg-background">
-                  <div className="w-1/4 p-3 font-medium text-muted-foreground border-r">Email</div>
-                  <div className="flex-1 p-3">{smtpConfig.smtp_email}</div>
-                </div>
-                <div className="flex bg-muted/30">
-                  <div className="w-1/4 p-3 font-medium text-muted-foreground border-r">TLS</div>
-                  <div className="flex-1 p-3">{smtpConfig.use_tls ? "Enabled" : "Disabled"}</div>
+                <Activity className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{endpoints.length}</p>
+                  <p className="text-xs text-muted-foreground">Endpoints</p>
                 </div>
               </div>
             </CardContent>
-          )}
-        </Card>
-
-        {/* Create New Endpoint */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Create New Webhook Endpoint
-            </CardTitle>
-            <CardDescription>
-              Generate a unique URL to capture incoming webhook data
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Endpoint Name</Label>
-                <Input
-                  id="name"
-                  value={newEndpoint.name}
-                  onChange={(e) => setNewEndpoint(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="My API Webhook"
-                />
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{requests.length}</p>
+                  <p className="text-xs text-muted-foreground">Total Requests</p>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="description">Description (optional)</Label>
-                <Input
-                  id="description"
-                  value={newEndpoint.description}
-                  onChange={(e) => setNewEndpoint(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Webhook for user registrations"
-                />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{endpoints.filter((e) => e.api_key).length}</p>
+                  <p className="text-xs text-muted-foreground">Secured</p>
+                </div>
               </div>
-            </div>
-            <Button onClick={createEndpoint}>Create Endpoint</Button>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{endpoints.filter((e) => e.notify_on_receive).length}</p>
+                  <p className="text-xs text-muted-foreground">Notifying</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Existing Endpoints */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Webhook Endpoints</CardTitle>
-            <CardDescription>
-              {endpoints.length} endpoint{endpoints.length !== 1 ? 's' : ''} created
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {endpoints.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No endpoints created yet. Create your first endpoint above.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {endpoints.map((endpoint) => (
-                  <div key={endpoint.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold">{endpoint.name}</h3>
-                        {endpoint.description && (
-                          <p className="text-sm text-muted-foreground">{endpoint.description}</p>
-                        )}
+        {/* Main tabs */}
+        <Tabs defaultValue="requests" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+
+          {/* Requests tab */}
+          <TabsContent value="requests">
+            <WebhookTable requests={requests} endpoints={endpoints} />
+          </TabsContent>
+
+          {/* Endpoints tab */}
+          <TabsContent value="endpoints" className="space-y-4">
+            {/* Create endpoint */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> New Endpoint</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Name</Label>
+                    <Input value={newEndpoint.name} onChange={(e) => setNewEndpoint((p) => ({ ...p, name: e.target.value }))} placeholder="My Webhook" />
+                  </div>
+                  <div>
+                    <Label>Description (optional)</Label>
+                    <Input value={newEndpoint.description} onChange={(e) => setNewEndpoint((p) => ({ ...p, description: e.target.value }))} placeholder="For user signups" />
+                  </div>
+                </div>
+                <Button onClick={createEndpoint}>Create Endpoint</Button>
+              </CardContent>
+            </Card>
+
+            {/* Endpoint list */}
+            <div className="space-y-3">
+              {endpoints.map((ep) => (
+                <Card key={ep.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold">{ep.name}</h3>
+                          <Badge variant={ep.is_active ? "default" : "secondary"}>{ep.is_active ? "Active" : "Inactive"}</Badge>
+                          {ep.api_key && <Badge variant="outline"><Shield className="h-3 w-3 mr-1" />Secured</Badge>}
+                          {ep.notify_on_receive && <Badge variant="outline"><Bell className="h-3 w-3 mr-1" />Notifying</Badge>}
+                        </div>
+                        {ep.description && <p className="text-sm text-muted-foreground">{ep.description}</p>}
+                        <div className="flex items-center gap-2 mt-2">
+                          <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
+                            {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/webhook-capture/${ep.endpoint_id}`}
+                          </code>
+                          <Button variant="outline" size="sm" onClick={() => copyUrl(ep.endpoint_id)}><Copy className="h-4 w-4" /></Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {requestCountByEndpoint(ep.endpoint_id)} requests captured
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={endpoint.is_active ? "default" : "secondary"}>
-                          {endpoint.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteEndpoint(endpoint.id)}
-                        >
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEndpointConfig(ep)}>
+                          <Settings className="h-4 w-4 mr-1" /> Configure
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => deleteEndpoint(ep.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <code className="bg-muted px-2 py-1 rounded flex-1">
-                        {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/webhook-capture/${endpoint.endpoint_id}`}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyWebhookUrl(endpoint.endpoint_id)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {endpoints.length === 0 && <p className="text-muted-foreground text-center py-8">No endpoints yet.</p>}
+            </div>
+          </TabsContent>
+
+          {/* Analytics tab */}
+          <TabsContent value="analytics">
+            <AnalyticsCharts requests={requests} />
+          </TabsContent>
+
+          {/* Settings tab */}
+          <TabsContent value="settings" className="space-y-4">
+            {/* SMTP */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Email Notifications (SMTP)</CardTitle>
+                    <CardDescription>Configure SMTP to receive email alerts</CardDescription>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <div className="flex items-center gap-2">
+                    {smtpConfig && (
+                      <>
+                        <Badge variant={smtpConfig.is_active ? "default" : "secondary"}>{smtpConfig.is_active ? "Active" : "Inactive"}</Badge>
+                        <Button variant="outline" size="sm" onClick={sendTestEmail}>Test</Button>
+                      </>
+                    )}
+                    <Dialog open={smtpDialogOpen} onOpenChange={setSmtpDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant={smtpConfig ? "outline" : "default"} size="sm">
+                          <Settings className="h-4 w-4 mr-1" /> {smtpConfig ? "Edit" : "Add"} SMTP
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{smtpConfig ? "Edit" : "Add"} SMTP</DialogTitle>
+                          <DialogDescription>Enter your SMTP server details</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div><Label>Host</Label><Input value={smtpForm.smtp_host} onChange={(e) => setSmtpForm((p) => ({ ...p, smtp_host: e.target.value }))} placeholder="smtp.gmail.com" /></div>
+                            <div><Label>Port</Label><Input type="number" value={smtpForm.smtp_port} onChange={(e) => setSmtpForm((p) => ({ ...p, smtp_port: parseInt(e.target.value) || 587 }))} /></div>
+                          </div>
+                          <div><Label>Email</Label><Input type="email" value={smtpForm.smtp_email} onChange={(e) => setSmtpForm((p) => ({ ...p, smtp_email: e.target.value }))} /></div>
+                          <div><Label>Username</Label><Input value={smtpForm.smtp_username} onChange={(e) => setSmtpForm((p) => ({ ...p, smtp_username: e.target.value }))} /></div>
+                          <div><Label>Password</Label><Input type="password" value={smtpForm.smtp_password} onChange={(e) => setSmtpForm((p) => ({ ...p, smtp_password: e.target.value }))} /></div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox checked={smtpForm.use_tls} onCheckedChange={(c) => setSmtpForm((p) => ({ ...p, use_tls: c === true }))} />
+                            <Label>Use TLS</Label>
+                          </div>
+                          <div className="flex justify-between">
+                            {smtpConfig && <Button variant="destructive" onClick={deleteSmtpConfig}><Trash2 className="h-4 w-4 mr-1" /> Remove</Button>}
+                            <Button className="ml-auto" onClick={saveSmtpConfig} disabled={smtpLoading || !smtpForm.smtp_host || !smtpForm.smtp_email}>
+                              {smtpLoading ? "Saving..." : "Save"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              </CardHeader>
+              {smtpConfig && (
+                <CardContent>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">Host:</span> {smtpConfig.smtp_host}:{smtpConfig.smtp_port}</p>
+                    <p><span className="text-muted-foreground">Email:</span> {smtpConfig.smtp_email}</p>
+                    <p><span className="text-muted-foreground">TLS:</span> {smtpConfig.use_tls ? "Enabled" : "Disabled"}</p>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
 
-        {/* POST Requests */}
-        <Card>
-          <CardHeader>
-            <CardTitle>POST Requests</CardTitle>
-            <CardDescription>
-              {postRequests.length} POST request{postRequests.length !== 1 ? 's' : ''} captured
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {postRequests.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No POST requests yet. Send a POST request to one of your endpoints to see it here.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {postRequests.map((request) => {
-                    const formData = parseFormData(request.body);
-                    return (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <span className="font-medium">
-                            {formData.name || 'N/A'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {formData.email ? (
-                            <a href={`mailto:${formData.email}`} className="text-blue-600 hover:underline">
-                              {formData.email}
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {formData.phone ? (
-                            <a href={`tel:${formData.phone}`} className="text-blue-600 hover:underline">
-                              {formData.phone}
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {new Date(request.created_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSelectedRequest(request)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
-                              <DialogHeader>
-                                <DialogTitle>POST Request Details</DialogTitle>
-                                <DialogDescription>
-                                  POST request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-6">
-                                <div>
-                                  <Label className="text-lg font-semibold">Request Information</Label>
-                                  <div className="border rounded-lg mt-2 overflow-hidden">
-                                    <div className="flex border-b bg-muted/50">
-                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Path</div>
-                                      <div className="flex-1 p-3"><code>{request.url_path}</code></div>
-                                    </div>
-                                    <div className="flex border-b bg-background">
-                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Source IP</div>
-                                      <div className="flex-1 p-3">{request.source_ip || 'Unknown'}</div>
-                                    </div>
-                                    <div className="flex border-b bg-muted/30">
-                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Content Type</div>
-                                      <div className="flex-1 p-3">{request.content_type || 'N/A'}</div>
-                                    </div>
-                                    <div className="flex bg-background">
-                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">User Agent</div>
-                                      <div className="flex-1 p-3 break-all">{request.user_agent || 'N/A'}</div>
-                                    </div>
-                                  </div>
-                                </div>
+            {/* Notification Channels */}
+            <NotificationChannels channels={channels} userId={user.id} onRefresh={loadChannels} />
+          </TabsContent>
+        </Tabs>
 
-                                {request.body && (
-                                  <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                      <Label className="text-lg font-semibold">Form Data</Label>
-                                      <Badge variant="outline">{Object.keys(parseFormData(request.body)).length} fields</Badge>
-                                    </div>
-                                    <div className="border rounded-lg overflow-hidden">
-                                      <div className="max-h-96 overflow-y-auto">
-                                        {Object.entries(parseFormData(request.body)).map(([key, value], index) => (
-                                          <div key={key} className={`flex border-b last:border-b-0 ${index % 2 === 0 ? 'bg-muted/30' : 'bg-background'}`}>
-                                            <div className="w-1/3 p-4 font-medium text-muted-foreground border-r bg-muted/50">
-                                              {key}
-                                            </div>
-                                            <div className="flex-1 p-4">
-                                              {key === 'email' && value.includes('@') ? (
-                                                <a href={`mailto:${value}`} className="text-blue-600 hover:underline">
-                                                  {value}
-                                                </a>
-                                              ) : key === 'phone' && (value.startsWith('+') || value.match(/^\d+$/)) ? (
-                                                <a href={`tel:${value}`} className="text-blue-600 hover:underline">
-                                                  {value}
-                                                </a>
-                                              ) : key === 'page' && value.startsWith('http') ? (
-                                                <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                  {value}
-                                                </a>
-                                              ) : key === 'created' && !isNaN(Number(value)) ? (
-                                                <span>{new Date(Number(value)).toLocaleString()}</span>
-                                              ) : (
-                                                <span className="break-all">{value}</span>
-                                              )}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                <div>
-                                  <Label className="text-lg font-semibold">Headers</Label>
-                                  <Textarea
-                                    value={JSON.stringify(request.headers, null, 2)}
-                                    readOnly
-                                    className="font-mono text-sm h-32 mt-2"
-                                  />
-                                </div>
-                                
-                                {request.query_params && (
-                                  <div>
-                                    <Label className="text-lg font-semibold">Query Parameters</Label>
-                                    <Textarea
-                                      value={JSON.stringify(request.query_params, null, 2)}
-                                      readOnly
-                                      className="font-mono text-sm h-24 mt-2"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* GET Requests */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        {/* Endpoint config dialog */}
+        <Dialog open={!!endpointConfigDialog} onOpenChange={(o) => !o && setEndpointConfigDialog(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Configure: {endpointConfigDialog?.name}</DialogTitle>
+              <DialogDescription>Set custom responses, API key auth, and notifications</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <CardTitle>GET Requests</CardTitle>
-                <CardDescription>
-                  {getRequests.length} GET request{getRequests.length !== 1 ? 's' : ''} captured
-                </CardDescription>
+                <Label>Response Status Code</Label>
+                <Input type="number" value={endpointConfig.response_status_code} onChange={(e) => setEndpointConfig((p) => ({ ...p, response_status_code: parseInt(e.target.value) || 200 }))} />
+              </div>
+              <div>
+                <Label>Response Body</Label>
+                <Textarea value={endpointConfig.response_body} onChange={(e) => setEndpointConfig((p) => ({ ...p, response_body: e.target.value }))} className="font-mono text-sm h-24" />
+              </div>
+              <div>
+                <Label>Response Headers (JSON)</Label>
+                <Textarea value={endpointConfig.response_headers} onChange={(e) => setEndpointConfig((p) => ({ ...p, response_headers: e.target.value }))} className="font-mono text-sm h-20" />
+              </div>
+              <div>
+                <Label>API Key (optional — senders must include in x-api-key header)</Label>
+                <Input value={endpointConfig.api_key} onChange={(e) => setEndpointConfig((p) => ({ ...p, api_key: e.target.value }))} placeholder="Leave empty for no auth" />
               </div>
               <div className="flex items-center space-x-2">
-                <Filter className="h-4 w-4" />
-                <Label htmlFor="show-get">Show GET requests</Label>
-                <Switch
-                  id="show-get"
-                  checked={showGetRequests}
-                  onCheckedChange={setShowGetRequests}
-                />
+                <Switch checked={endpointConfig.notify_on_receive} onCheckedChange={(c) => setEndpointConfig((p) => ({ ...p, notify_on_receive: c }))} />
+                <Label>Notify on webhook receive (email + Slack/Discord)</Label>
               </div>
+              <Button onClick={saveEndpointConfig} className="w-full">Save Configuration</Button>
             </div>
-          </CardHeader>
-          {showGetRequests && (
-            <CardContent>
-              {getRequests.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  No GET requests yet.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Path</TableHead>
-                      <TableHead>Source IP</TableHead>
-                      <TableHead>User Agent</TableHead>
-                      <TableHead>Timestamp</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {getRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <code className="text-sm bg-muted px-2 py-1 rounded">
-                            {request.url_path}
-                          </code>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {request.source_ip || 'Unknown'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                          {request.user_agent || 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {new Date(request.created_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSelectedRequest(request)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
-                              <DialogHeader>
-                                <DialogTitle>GET Request Details</DialogTitle>
-                                <DialogDescription>
-                                  GET request to {request.url_path} at {new Date(request.created_at).toLocaleString()}
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div>
-                                  <Label>Headers</Label>
-                                  <Textarea
-                                    value={JSON.stringify(request.headers, null, 2)}
-                                    readOnly
-                                    className="font-mono text-sm h-32"
-                                  />
-                                </div>
-                                {request.query_params && (
-                                  <div>
-                                    <Label>Query Parameters</Label>
-                                    <Textarea
-                                      value={JSON.stringify(request.query_params, null, 2)}
-                                      readOnly
-                                      className="font-mono text-sm h-24"
-                                    />
-                                  </div>
-                                )}
-                                <div>
-                                  <Label>User Agent</Label>
-                                  <Textarea
-                                    value={request.user_agent || 'N/A'}
-                                    readOnly
-                                    className="font-mono text-sm h-16"
-                                  />
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          )}
-        </Card>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
