@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      notification_channels: {
+        Row: {
+          channel_name: string | null
+          channel_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+          webhook_url: string
+        }
+        Insert: {
+          channel_name?: string | null
+          channel_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+          webhook_url: string
+        }
+        Update: {
+          channel_name?: string | null
+          channel_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -103,29 +136,47 @@ export type Database = {
       }
       webhook_endpoints: {
         Row: {
+          api_key: string | null
           created_at: string
+          description: string | null
           endpoint_id: string
           id: string
           is_active: boolean
           name: string | null
+          notify_on_receive: boolean
+          response_body: string | null
+          response_headers: Json | null
+          response_status_code: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          api_key?: string | null
           created_at?: string
+          description?: string | null
           endpoint_id: string
           id?: string
           is_active?: boolean
           name?: string | null
+          notify_on_receive?: boolean
+          response_body?: string | null
+          response_headers?: Json | null
+          response_status_code?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          api_key?: string | null
           created_at?: string
+          description?: string | null
           endpoint_id?: string
           id?: string
           is_active?: boolean
           name?: string | null
+          notify_on_receive?: boolean
+          response_body?: string | null
+          response_headers?: Json | null
+          response_status_code?: number
           updated_at?: string
           user_id?: string
         }
