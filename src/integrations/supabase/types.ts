@@ -56,6 +56,78 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_endpoints: {
+        Row: {
+          created_at: string
+          endpoint_id: string
+          id: string
+          is_active: boolean
+          name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_id: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webhooks: {
+        Row: {
+          body: Json | null
+          content_type: string | null
+          created_at: string
+          headers: Json | null
+          id: string
+          method: string | null
+          query_params: Json | null
+          source_ip: string | null
+          url_path: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          body?: Json | null
+          content_type?: string | null
+          created_at?: string
+          headers?: Json | null
+          id?: string
+          method?: string | null
+          query_params?: Json | null
+          source_ip?: string | null
+          url_path?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: Json | null
+          content_type?: string | null
+          created_at?: string
+          headers?: Json | null
+          id?: string
+          method?: string | null
+          query_params?: Json | null
+          source_ip?: string | null
+          url_path?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
