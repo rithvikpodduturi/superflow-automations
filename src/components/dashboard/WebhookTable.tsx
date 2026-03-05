@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Eye, Search, Download, Send, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Eye, Search, Download, Send, ChevronLeft, ChevronRight, Calendar, Code, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { SmartWebhookView } from "./SmartWebhookView";
 
 interface WebhookRequest {
   id: string;
@@ -49,6 +50,7 @@ export function WebhookTable({ requests, endpoints }: Props) {
   const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null);
   const [forwardUrl, setForwardUrl] = useState("");
   const [forwarding, setForwarding] = useState(false);
+  const [viewMode, setViewMode] = useState<"smart" | "developer">("smart");
   const { toast } = useToast();
 
   // Filter
@@ -233,46 +235,73 @@ export function WebhookTable({ requests, endpoints }: Props) {
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
-                              <div className="border rounded-lg overflow-hidden">
-                                <div className="flex border-b bg-muted/50">
-                                  <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Path</div>
-                                  <div className="flex-1 p-3"><code>{request.url_path}</code></div>
-                                </div>
-                                <div className="flex border-b">
-                                  <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Source IP</div>
-                                  <div className="flex-1 p-3">{request.source_ip || "Unknown"}</div>
-                                </div>
-                                <div className="flex border-b bg-muted/50">
-                                  <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Content-Type</div>
-                                  <div className="flex-1 p-3">{request.content_type || "N/A"}</div>
-                                </div>
-                                <div className="flex">
-                                  <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">User Agent</div>
-                                  <div className="flex-1 p-3 break-all text-sm">{request.user_agent || "N/A"}</div>
-                                </div>
+                              {/* Smart / Developer toggle */}
+                              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg w-fit">
+                                <button
+                                  onClick={() => setViewMode("smart")}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "smart" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                                >
+                                  <Sparkles className="h-3.5 w-3.5" /> Smart View
+                                </button>
+                                <button
+                                  onClick={() => setViewMode("developer")}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "developer" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                                >
+                                  <Code className="h-3.5 w-3.5" /> Developer View
+                                </button>
                               </div>
 
-                              {request.body && (
-                                <div>
-                                  <Label className="text-sm font-semibold">Body</Label>
-                                  <Textarea
-                                    value={typeof request.body === "string" ? request.body : JSON.stringify(request.body, null, 2)}
-                                    readOnly
-                                    className="font-mono text-sm h-40 mt-1"
-                                  />
-                                </div>
-                              )}
+                              {viewMode === "smart" ? (
+                                <SmartWebhookView
+                                  body={request.body}
+                                  method={request.method}
+                                  contentType={request.content_type}
+                                  createdAt={request.created_at}
+                                />
+                              ) : (
+                                <>
+                                  <div className="border rounded-lg overflow-hidden">
+                                    <div className="flex border-b bg-muted/50">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Path</div>
+                                      <div className="flex-1 p-3"><code>{request.url_path}</code></div>
+                                    </div>
+                                    <div className="flex border-b">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Source IP</div>
+                                      <div className="flex-1 p-3">{request.source_ip || "Unknown"}</div>
+                                    </div>
+                                    <div className="flex border-b bg-muted/50">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">Content-Type</div>
+                                      <div className="flex-1 p-3">{request.content_type || "N/A"}</div>
+                                    </div>
+                                    <div className="flex">
+                                      <div className="w-1/3 p-3 font-medium text-muted-foreground border-r">User Agent</div>
+                                      <div className="flex-1 p-3 break-all text-sm">{request.user_agent || "N/A"}</div>
+                                    </div>
+                                  </div>
 
-                              <div>
-                                <Label className="text-sm font-semibold">Headers</Label>
-                                <Textarea value={JSON.stringify(request.headers, null, 2)} readOnly className="font-mono text-sm h-32 mt-1" />
-                              </div>
+                                  {request.body && (
+                                    <div>
+                                      <Label className="text-sm font-semibold">Body</Label>
+                                      <Textarea
+                                        value={typeof request.body === "string" ? request.body : JSON.stringify(request.body, null, 2)}
+                                        readOnly
+                                        className="font-mono text-sm h-40 mt-1"
+                                      />
+                                    </div>
+                                  )}
 
-                              {request.query_params && (
-                                <div>
-                                  <Label className="text-sm font-semibold">Query Params</Label>
-                                  <Textarea value={JSON.stringify(request.query_params, null, 2)} readOnly className="font-mono text-sm h-24 mt-1" />
-                                </div>
+                                  <div>
+                                    <Label className="text-sm font-semibold">Headers</Label>
+                                    <Textarea value={JSON.stringify(request.headers, null, 2)} readOnly className="font-mono text-sm h-32 mt-1" />
+                                  </div>
+
+                                  {request.query_params && (
+                                    <div>
+                                      <Label className="text-sm font-semibold">Query Params</Label>
+                                      <Textarea value={JSON.stringify(request.query_params, null, 2)} readOnly className="font-mono text-sm h-24 mt-1" />
+                                    </div>
+                                  )}
+                                </>
                               )}
 
                               {/* Forward/Replay */}
