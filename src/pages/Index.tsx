@@ -88,70 +88,19 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Pricing */}
+        {/* Open Source CTA */}
         <div className="text-center mb-20">
-          <h2 className="text-3xl font-bold mb-4">Simple Pricing</h2>
-          <p className="text-muted-foreground mb-12">Start free. Upgrade when you need more.</p>
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free */}
-            <Card className="relative">
-              <CardHeader>
-                <CardTitle>Free</CardTitle>
-                <CardDescription>For trying things out</CardDescription>
-                <p className="text-4xl font-bold pt-2">$0<span className="text-base font-normal text-muted-foreground">/mo</span></p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {["3 endpoints", "100 requests/day", "7-day data retention", "Email notifications", "JSON export"].map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-primary" /> {f}
-                  </div>
-                ))}
-                <Button asChild variant="outline" className="w-full mt-4">
-                  <Link to="/auth">Get Started</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Pro */}
-            <Card className="relative border-primary shadow-lg">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-primary text-primary-foreground">Most Popular</Badge>
-              </div>
-              <CardHeader>
-                <CardTitle>Pro</CardTitle>
-                <CardDescription>For developers & small teams</CardDescription>
-                <p className="text-4xl font-bold pt-2">$12<span className="text-base font-normal text-muted-foreground">/mo</span></p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {["Unlimited endpoints", "10,000 requests/day", "30-day retention", "Webhook forwarding", "Slack & Discord alerts", "API key auth", "CSV & JSON export", "Custom responses", "Analytics dashboard"].map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-primary" /> {f}
-                  </div>
-                ))}
-                <Button asChild className="w-full mt-4">
-                  <Link to="/auth">Start Pro Trial</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Team */}
-            <Card className="relative">
-              <CardHeader>
-                <CardTitle>Team</CardTitle>
-                <CardDescription>For organizations</CardDescription>
-                <p className="text-4xl font-bold pt-2">$39<span className="text-base font-normal text-muted-foreground">/mo</span></p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {["Everything in Pro", "Unlimited retention", "5 team members", "Role-based access", "Shared workspaces", "Priority support", "SSO (coming soon)"].map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-primary" /> {f}
-                  </div>
-                ))}
-                <Button asChild variant="outline" className="w-full mt-4">
-                  <Link to="/auth">Contact Sales</Link>
-                </Button>
-              </CardContent>
-            </Card>
+          <h2 className="text-3xl font-bold mb-4">100% Free & Open Source</h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+            All features included. No paywalls, no limits. Self-host it or use our hosted version — forever free.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button asChild size="lg">
+              <Link to="/auth">Get Started Free</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+            </Button>
           </div>
         </div>
 
