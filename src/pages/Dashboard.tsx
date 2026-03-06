@@ -427,6 +427,11 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          {/* Integrations tab */}
+          <TabsContent value="integrations">
+            <IntegrationTemplates userId={user.id} onEndpointCreated={loadEndpoints} />
+          </TabsContent>
+
           {/* Analytics tab */}
           <TabsContent value="analytics">
             <AnalyticsCharts requests={requests} />
