@@ -19,6 +19,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { WebhookTable } from "@/components/dashboard/WebhookTable";
 import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
 import { NotificationChannels } from "@/components/dashboard/NotificationChannels";
+import { IntegrationTemplates } from "@/components/dashboard/IntegrationTemplates";
 
 interface WebhookEndpoint {
   id: string;
