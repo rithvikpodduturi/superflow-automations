@@ -116,6 +116,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_limits: {
+        Row: {
+          ban_reason: string | null
+          banned_at: string | null
+          created_at: string
+          id: string
+          is_banned: boolean
+          max_endpoints: number
+          max_notification_channels: number
+          max_webhooks_per_day: number
+          requests_per_minute: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ban_reason?: string | null
+          banned_at?: string | null
+          created_at?: string
+          id?: string
+          is_banned?: boolean
+          max_endpoints?: number
+          max_notification_channels?: number
+          max_webhooks_per_day?: number
+          requests_per_minute?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ban_reason?: string | null
+          banned_at?: string | null
+          created_at?: string
+          id?: string
+          is_banned?: boolean
+          max_endpoints?: number
+          max_notification_channels?: number
+          max_webhooks_per_day?: number
+          requests_per_minute?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

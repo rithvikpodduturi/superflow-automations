@@ -287,6 +287,11 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            {userRole === "super_admin" && (
+              <Button variant="outline" onClick={() => navigate("/admin")}>
+                <Shield className="h-4 w-4 mr-2" /> Admin Panel
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="text-sm text-muted-foreground hidden md:inline">{user.email}</span>
