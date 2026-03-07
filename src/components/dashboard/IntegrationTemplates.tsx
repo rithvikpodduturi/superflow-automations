@@ -287,62 +287,68 @@ export function IntegrationTemplates({ userId, onEndpointCreated }: IntegrationT
       {/* Setup guide dialog */}
       <Dialog open={!!setupDialog} onOpenChange={(o) => !o && setSetupDialog(null)}>
         {setupDialog && (
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <div className="flex items-center gap-3 mb-1">
-                <img
-                  src={setupDialog.app.logo}
-                  alt={`${setupDialog.app.source} logo`}
-                  className="h-11 w-11 rounded-xl object-cover ring-1 ring-border"
-                />
-                <div>
-                  <DialogTitle className="text-lg">Connect {setupDialog.app.source}</DialogTitle>
-                  <DialogDescription>Follow these simple steps — it only takes a minute.</DialogDescription>
-                </div>
+          <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-6 pt-6 pb-4">
+              <img
+                src={setupDialog.app.logo}
+                alt={`${setupDialog.app.source} logo`}
+                className="h-10 w-10 rounded-xl object-cover ring-1 ring-border"
+              />
+              <div>
+                <DialogTitle className="text-base font-semibold">Connect {setupDialog.app.source}</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">Follow these simple steps — it only takes a minute.</DialogDescription>
               </div>
-            </DialogHeader>
+            </div>
 
             {/* Unique link box */}
-            <div className="bg-muted rounded-xl p-4">
-              <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Your Unique Link</p>
+            <div className="mx-6 rounded-xl bg-muted/60 border border-border/50 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Your Unique Link</p>
               <div className="flex items-center gap-2">
-                <code className="text-xs bg-background px-3 py-2 rounded-lg flex-1 truncate border font-mono">
-                  {getWebhookUrl(setupDialog.endpointId)}
-                </code>
-                <Button variant="outline" size="sm" onClick={() => copyUrl(setupDialog.endpointId)} className="shrink-0">
+                <div className="flex-1 bg-background rounded-lg border border-border px-3 py-2.5 overflow-hidden">
+                  <code className="text-[11px] text-foreground/80 font-mono block truncate">
+                    {getWebhookUrl(setupDialog.endpointId)}
+                  </code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyUrl(setupDialog.endpointId)}
+                  className="shrink-0 h-10 w-10 rounded-lg"
+                >
                   {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
 
-            {/* Step-by-step guide */}
-            <div className="space-y-3 mt-1">
+            {/* Steps */}
+            <div className="px-6 py-4 space-y-2.5 max-h-[50vh] overflow-y-auto">
               {setupDialog.app.steps.map((step, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveStep(i)}
-                  className={`w-full text-left rounded-xl border p-4 transition-all ${
+                  className={`w-full text-left rounded-xl border p-4 transition-all duration-200 ${
                     activeStep === i
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:border-primary/20"
+                      ? "border-primary/40 bg-primary/5 shadow-sm"
+                      : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex gap-3">
-                    <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                  <div className="flex gap-3 items-start">
+                    <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                       activeStep === i
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"
                     }`}>
                       {i + 1}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm">{step.title}</p>
                       {activeStep === i && (
-                        <div className="mt-2 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <p className="text-sm text-muted-foreground leading-relaxed">{step.detail}</p>
+                        <div className="mt-2 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <p className="text-[13px] text-muted-foreground leading-relaxed">{step.detail}</p>
                           {step.screenshotPlaceholder && (
-                            <div className="bg-muted rounded-lg h-28 flex items-center justify-center border border-dashed border-border">
-                              <p className="text-xs text-muted-foreground">{step.screenshotPlaceholder}</p>
+                            <div className="bg-muted/50 rounded-lg h-24 flex items-center justify-center border border-dashed border-border/50">
+                              <p className="text-[11px] text-muted-foreground/60">{step.screenshotPlaceholder}</p>
                             </div>
                           )}
                         </div>
@@ -353,14 +359,16 @@ export function IntegrationTemplates({ userId, onEndpointCreated }: IntegrationT
               ))}
             </div>
 
-            {/* Open app settings */}
+            {/* Footer action */}
             {setupDialog.app.settingsUrl && (
-              <Button variant="outline" className="w-full mt-1" asChild>
-                <a href={setupDialog.app.settingsUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open {setupDialog.app.source} Settings
-                </a>
-              </Button>
+              <div className="px-6 pb-6">
+                <Button variant="outline" className="w-full rounded-xl" asChild>
+                  <a href={setupDialog.app.settingsUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                    Open {setupDialog.app.source} Settings
+                  </a>
+                </Button>
+              </div>
             )}
           </DialogContent>
         )}
