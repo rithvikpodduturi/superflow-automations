@@ -179,17 +179,13 @@ const Dashboard = () => {
 
   const loadEndpoints = async () => {
     if (!user) return;
-    let query = (supabase as any).from("webhook_endpoints").select("*").order("created_at", { ascending: false });
-    if (userRole !== "super_admin") query = query.eq("user_id", user.id);
-    const { data } = await query;
+    const { data } = await (supabase as any).from("webhook_endpoints").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
     setEndpoints(data || []);
   };
 
   const loadRequests = async () => {
     if (!user) return;
-    let query = (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false }).limit(500);
-    if (userRole !== "super_admin") query = query.eq("user_id", user.id);
-    const { data } = await query;
+    const { data } = await (supabase as any).from("webhooks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500);
     setRequests(data || []);
   };
 
