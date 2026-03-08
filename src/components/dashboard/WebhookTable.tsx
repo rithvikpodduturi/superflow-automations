@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, Search, Download, ChevronLeft, ChevronRight, Code, Sparkles, Columns, Loader2 } from "lucide-react";
+import { Eye, Search, Download, ChevronLeft, ChevronRight, Code, Sparkles, Columns, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SmartWebhookView } from "./SmartWebhookView";
 import { WebhookReplayDialog } from "./WebhookReplayDialog";
@@ -70,7 +70,26 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(ALL_COLUMNS.map((c) => c.key)));
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [exportingAll, setExportingAll] = useState(false);
+  const [sortColumn, setSortColumn] = useState<string>("timestamp");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { toast } = useToast();
+
+  const toggleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "timestamp" ? "desc" : "asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDirection === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   // Unique content types for filter
   const contentTypes = [...new Set(requests.map((r) => r.content_type).filter(Boolean))];
@@ -93,8 +112,27 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
     return true;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  // Sort
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (sortColumn) {
+        case "method": aVal = a.method || ""; bVal = b.method || ""; break;
+        case "path": aVal = a.url_path || ""; bVal = b.url_path || ""; break;
+        case "source_ip": aVal = a.source_ip || ""; bVal = b.source_ip || ""; break;
+        case "content_type": aVal = a.content_type || ""; bVal = b.content_type || ""; break;
+        case "timestamp": default: aVal = a.created_at; bVal = b.created_at; break;
+      }
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [filtered, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const paginated = sorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const allSelected = paginated.length > 0 && paginated.every((r) => selectedIds.has(r.id));
   const someSelected = paginated.some((r) => selectedIds.has(r.id));
@@ -317,11 +355,31 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
                   <TableHead className="w-[40px]">
                     <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
                   </TableHead>
-                  {visibleColumns.has("method") && <TableHead>Method</TableHead>}
-                  {visibleColumns.has("path") && <TableHead>Path</TableHead>}
-                  {visibleColumns.has("source_ip") && <TableHead>Source IP</TableHead>}
-                  {visibleColumns.has("content_type") && <TableHead>Content Type</TableHead>}
-                  {visibleColumns.has("timestamp") && <TableHead>Timestamp</TableHead>}
+                  {visibleColumns.has("method") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("method")}>
+                      <span className="flex items-center">Method <SortIcon column="method" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("path") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("path")}>
+                      <span className="flex items-center">Path <SortIcon column="path" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("source_ip") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("source_ip")}>
+                      <span className="flex items-center">Source IP <SortIcon column="source_ip" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("content_type") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("content_type")}>
+                      <span className="flex items-center">Content Type <SortIcon column="content_type" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("timestamp") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("timestamp")}>
+                      <span className="flex items-center">Timestamp <SortIcon column="timestamp" /></span>
+                    </TableHead>
+                  )}
                   <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -461,7 +519,7 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
             {totalPages > 1 && (
               <div className="flex items-center justify-between pt-4">
                 <p className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages} · {filtered.length} total
+                  Page {currentPage} of {totalPages} · {sorted.length} total
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>
