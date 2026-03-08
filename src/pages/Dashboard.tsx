@@ -439,7 +439,14 @@ const Dashboard = () => {
 
           {/* Requests tab */}
           <TabsContent value="requests">
-            <WebhookTable requests={requests} endpoints={endpoints} newRequestIds={newRequestIds} onExportAll={fetchAllRequests} />
+            <WebhookTable
+              requests={endpointFilterId ? requests.filter(r => r.url_path?.includes(endpointFilterId)) : requests}
+              endpoints={endpoints}
+              newRequestIds={newRequestIds}
+              onExportAll={fetchAllRequests}
+              activeEndpointFilter={endpointFilterId}
+              onClearEndpointFilter={() => setEndpointFilterId(null)}
+            />
           </TabsContent>
 
           {/* Endpoints tab */}
