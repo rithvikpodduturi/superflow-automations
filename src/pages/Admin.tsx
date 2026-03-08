@@ -28,6 +28,7 @@ interface UserProfile {
   user_id: string;
   full_name: string | null;
   avatar_url: string | null;
+  email: string | null;
   created_at: string;
 }
 
@@ -47,11 +48,13 @@ interface UserLimits {
 
 interface UserStats {
   user_id: string;
-  email?: string;
+  email: string | null;
   full_name: string | null;
+  role: string;
   created_at: string;
   endpoint_count: number;
   webhook_count: number;
+  webhook_count_today: number;
   channel_count: number;
   limits: UserLimits | null;
 }
@@ -98,12 +101,17 @@ const Admin = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      // Load profiles
+      // Load profiles (includes email now)
       const { data: profiles } = await (supabase as any).from("profiles").select("*");
+      // Load user roles
+      const { data: roles } = await (supabase as any).from("user_roles").select("user_id, role");
       // Load endpoints count per user
       const { data: endpoints } = await (supabase as any).from("webhook_endpoints").select("user_id");
-      // Load webhooks count per user
-      const { data: webhooks } = await (supabase as any).from("webhooks").select("user_id");
+      // Load webhooks count per user (last 24h for daily count)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: webhooksToday } = await (supabase as any).from("webhooks").select("user_id").gte("created_at", oneDayAgo);
+      // Load total webhooks
+      const { data: webhooksTotal } = await (supabase as any).from("webhooks").select("user_id");
       // Load channels count per user
       const { data: channels } = await (supabase as any).from("notification_channels").select("user_id");
       // Load limits
@@ -111,16 +119,21 @@ const Admin = () => {
 
       const userStats: UserStats[] = (profiles || []).map((p: UserProfile) => {
         const endpointCount = (endpoints || []).filter((e: any) => e.user_id === p.user_id).length;
-        const webhookCount = (webhooks || []).filter((w: any) => w.user_id === p.user_id).length;
+        const webhookCountToday = (webhooksToday || []).filter((w: any) => w.user_id === p.user_id).length;
+        const webhookCountTotal = (webhooksTotal || []).filter((w: any) => w.user_id === p.user_id).length;
         const channelCount = (channels || []).filter((c: any) => c.user_id === p.user_id).length;
         const userLimits = (limits || []).find((l: any) => l.user_id === p.user_id) || null;
+        const userRole = (roles || []).find((r: any) => r.user_id === p.user_id);
 
         return {
           user_id: p.user_id,
+          email: p.email,
           full_name: p.full_name,
+          role: userRole?.role || "user",
           created_at: p.created_at,
           endpoint_count: endpointCount,
-          webhook_count: webhookCount,
+          webhook_count: webhookCountTotal,
+          webhook_count_today: webhookCountToday,
           channel_count: channelCount,
           limits: userLimits,
         };
@@ -223,6 +236,7 @@ const Admin = () => {
   const filteredUsers = users.filter(
     (u) =>
       (u.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
       u.user_id.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -313,7 +327,7 @@ const Admin = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search users by name or ID..."
+            placeholder="Search users by name, email, or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -355,10 +369,15 @@ const Admin = () => {
                           <TableCell>
                             <div>
                               <p className="font-medium">{u.full_name || "Unnamed User"}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{u.user_id.slice(0, 8)}...</p>
-                              <p className="text-xs text-muted-foreground">
-                                Joined {new Date(u.created_at).toLocaleDateString()}
-                              </p>
+                              {u.email && <p className="text-xs text-muted-foreground">{u.email}</p>}
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  {u.role}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground">
+                                  Joined {new Date(u.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
@@ -370,12 +389,15 @@ const Admin = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <span className={isOverWebhooks ? "text-destructive font-bold" : ""}>
-                              {u.webhook_count}
-                            </span>
-                            {u.limits && (
-                              <span className="text-xs text-muted-foreground">/{u.limits.max_webhooks_per_day}</span>
-                            )}
+                            <div>
+                              <span className={isOverWebhooks ? "text-destructive font-bold" : ""}>
+                                {u.webhook_count_today}
+                              </span>
+                              {u.limits && (
+                                <span className="text-xs text-muted-foreground">/{u.limits.max_webhooks_per_day}</span>
+                              )}
+                              <p className="text-[10px] text-muted-foreground">{u.webhook_count} total</p>
+                            </div>
                           </TableCell>
                           <TableCell className="text-center">
                             {u.channel_count}
