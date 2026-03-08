@@ -112,8 +112,27 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
     return true;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  // Sort
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (sortColumn) {
+        case "method": aVal = a.method || ""; bVal = b.method || ""; break;
+        case "path": aVal = a.url_path || ""; bVal = b.url_path || ""; break;
+        case "source_ip": aVal = a.source_ip || ""; bVal = b.source_ip || ""; break;
+        case "content_type": aVal = a.content_type || ""; bVal = b.content_type || ""; break;
+        case "timestamp": default: aVal = a.created_at; bVal = b.created_at; break;
+      }
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [filtered, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const paginated = sorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const allSelected = paginated.length > 0 && paginated.every((r) => selectedIds.has(r.id));
   const someSelected = paginated.some((r) => selectedIds.has(r.id));
