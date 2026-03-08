@@ -6,6 +6,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return undefined
+  return path.split('.').reduce((acc, key) => acc?.[key], obj)
+}
+
+function applyTemplate(template: any, source: any): any {
+  if (typeof template === 'string') {
+    return template.replace(/\{\{([\w.]+)\}\}/g, (_, path) => {
+      const val = getNestedValue(source, path)
+      return val !== undefined ? String(val) : ''
+    })
+  }
+  if (Array.isArray(template)) return template.map(item => applyTemplate(item, source))
+  if (typeof template === 'object' && template !== null) {
+    const result: Record<string, any> = {}
+    for (const [key, value] of Object.entries(template)) {
+      result[key] = applyTemplate(value, source)
+    }
+    return result
+  }
+  return template
+}
+
 async function checkRateLimits(supabase: any, userId: string, limits: any): Promise<string | null> {
   const now = new Date()
 
