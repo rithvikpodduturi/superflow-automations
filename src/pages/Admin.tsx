@@ -22,6 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminUsageChart } from "@/components/dashboard/AdminUsageChart";
 
 interface UserProfile {
   user_id: string;
@@ -304,6 +305,9 @@ const Admin = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Usage Chart */}
+        <AdminUsageChart users={users.map(u => ({ user_id: u.user_id, full_name: u.full_name }))} />
 
         {/* Search */}
         <div className="relative">
