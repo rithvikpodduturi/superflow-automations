@@ -544,6 +544,9 @@ const Dashboard = () => {
                 <Label>Notify on webhook receive (email + Slack/Discord)</Label>
               </div>
               <Button onClick={saveEndpointConfig} className="w-full">Save Configuration</Button>
+              {endpointConfigDialog && (
+                <WebhookTransforms endpointId={endpointConfigDialog.id} userId={user.id} />
+              )}
             </div>
           </DialogContent>
         </Dialog>
