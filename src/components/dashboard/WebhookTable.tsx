@@ -519,7 +519,7 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
             {totalPages > 1 && (
               <div className="flex items-center justify-between pt-4">
                 <p className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages} · {filtered.length} total
+                  Page {currentPage} of {totalPages} · {sorted.length} total
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>
