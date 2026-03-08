@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Trash2, LogOut, User, Mail, Settings, Activity, BarChart3, Shield, Bell } from "lucide-react";
+import { Copy, Plus, Trash2, LogOut, User, Mail, Settings, Activity, BarChart3, Shield, Bell, HeartPulse, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +22,9 @@ import { NotificationChannels } from "@/components/dashboard/NotificationChannel
 import { IntegrationTemplates } from "@/components/dashboard/IntegrationTemplates";
 import { GoogleSheetsConfig } from "@/components/dashboard/GoogleSheetsConfig";
 import { WebhookTransforms } from "@/components/dashboard/WebhookTransforms";
+import { LiveFeedIndicator } from "@/components/dashboard/LiveFeedIndicator";
+import { RetryQueue } from "@/components/dashboard/RetryQueue";
+import { HealthMonitoring } from "@/components/dashboard/HealthMonitoring";
 
 interface WebhookEndpoint {
   id: string;
@@ -91,6 +94,14 @@ const Dashboard = () => {
     api_key: "",
     notify_on_receive: false,
   });
+
+  // Live feed state
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [newRequestIds, setNewRequestIds] = useState<Set<string>>(new Set());
+  const pausedQueueRef = useRef<WebhookRequest[]>([]);
+
   const { toast } = useToast();
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -109,14 +120,49 @@ const Dashboard = () => {
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "webhooks" }, (payload) => {
           const newReq = payload.new as WebhookRequest;
           if (userRole === "super_admin" || newReq.user_id === user.id) {
-            setRequests((prev) => [newReq, ...prev]);
+            if (isPaused) {
+              pausedQueueRef.current.push(newReq);
+            } else {
+              setRequests((prev) => [newReq, ...prev]);
+              setNewRequestIds((prev) => {
+                const next = new Set(prev);
+                next.add(newReq.id);
+                setTimeout(() => setNewRequestIds((p) => { const n = new Set(p); n.delete(newReq.id); return n; }), 3000);
+                return next;
+              });
+            }
+            setSessionCount((c) => c + 1);
             toast({ title: "New webhook received!", description: `${newReq.method} request` });
           }
         })
-        .subscribe();
+        .subscribe((status) => {
+          setIsLiveConnected(status === "SUBSCRIBED");
+        });
       return () => { supabase.removeChannel(channel); };
     }
-  }, [user, userRole, toast]);
+  }, [user, userRole, toast, isPaused]);
+
+  const handleTogglePause = useCallback(() => {
+    setIsPaused((prev) => {
+      if (prev) {
+        // Resuming — flush queued requests
+        const queued = pausedQueueRef.current;
+        if (queued.length > 0) {
+          setRequests((r) => [...queued.reverse(), ...r]);
+          queued.forEach((q) => {
+            setNewRequestIds((p) => {
+              const n = new Set(p);
+              n.add(q.id);
+              setTimeout(() => setNewRequestIds((pp) => { const nn = new Set(pp); nn.delete(q.id); return nn; }), 3000);
+              return n;
+            });
+          });
+          pausedQueueRef.current = [];
+        }
+      }
+      return !prev;
+    });
+  }, []);
 
   const loadAll = () => {
     loadEndpoints();
@@ -145,6 +191,23 @@ const Dashboard = () => {
     if (userRole !== "super_admin") query = query.eq("user_id", user.id);
     const { data } = await query;
     setRequests(data || []);
+  };
+
+  const fetchAllRequests = async (): Promise<WebhookRequest[]> => {
+    if (!user) return [];
+    const allData: WebhookRequest[] = [];
+    let from = 0;
+    const batchSize = 1000;
+    while (true) {
+      let query = (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false }).range(from, from + batchSize - 1);
+      if (userRole !== "super_admin") query = query.eq("user_id", user.id);
+      const { data } = await query;
+      if (!data || data.length === 0) break;
+      allData.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+    return allData;
   };
 
   const loadSmtpConfig = async () => {
@@ -268,7 +331,6 @@ const Dashboard = () => {
     }
   };
 
-  // Request counts per endpoint
   const requestCountByEndpoint = (endpointId: string) => {
     return requests.filter((r) => r.url_path?.includes(endpointId)).length;
   };
@@ -283,9 +345,17 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Webhook Dashboard</h1>
-            <p className="text-muted-foreground">Manage endpoints, monitor requests, and analyze data</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">Webhook Dashboard</h1>
+              <p className="text-muted-foreground">Manage endpoints, monitor requests, and analyze data</p>
+            </div>
+            <LiveFeedIndicator
+              isConnected={isLiveConnected}
+              sessionCount={sessionCount}
+              isPaused={isPaused}
+              onTogglePause={handleTogglePause}
+            />
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -359,9 +429,11 @@ const Dashboard = () => {
 
         {/* Main tabs */}
         <Tabs defaultValue="requests" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+            <TabsTrigger value="forwards">Forwards</TabsTrigger>
+            <TabsTrigger value="health">Health</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -369,12 +441,11 @@ const Dashboard = () => {
 
           {/* Requests tab */}
           <TabsContent value="requests">
-            <WebhookTable requests={requests} endpoints={endpoints} />
+            <WebhookTable requests={requests} endpoints={endpoints} newRequestIds={newRequestIds} onExportAll={fetchAllRequests} />
           </TabsContent>
 
           {/* Endpoints tab */}
           <TabsContent value="endpoints" className="space-y-4">
-            {/* Create endpoint */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> New Endpoint</CardTitle>
@@ -394,7 +465,6 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Endpoint list */}
             <div className="space-y-3">
               {endpoints.map((ep) => (
                 <Card key={ep.id}>
@@ -434,6 +504,16 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          {/* Forwards / Retry Queue tab */}
+          <TabsContent value="forwards">
+            <RetryQueue endpoints={endpoints} userId={user.id} />
+          </TabsContent>
+
+          {/* Health Monitoring tab */}
+          <TabsContent value="health">
+            <HealthMonitoring endpoints={endpoints} userId={user.id} />
+          </TabsContent>
+
           {/* Integrations tab */}
           <TabsContent value="integrations">
             <IntegrationTemplates userId={user.id} onEndpointCreated={loadEndpoints} />
@@ -446,7 +526,6 @@ const Dashboard = () => {
 
           {/* Settings tab */}
           <TabsContent value="settings" className="space-y-4">
-            {/* SMTP */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -507,10 +586,7 @@ const Dashboard = () => {
               )}
             </Card>
 
-            {/* Notification Channels */}
             <NotificationChannels channels={channels} userId={user.id} onRefresh={loadChannels} />
-
-            {/* Google Sheets */}
             <GoogleSheetsConfig userId={user.id} />
           </TabsContent>
         </Tabs>
