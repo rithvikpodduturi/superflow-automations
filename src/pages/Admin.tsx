@@ -37,7 +37,9 @@ interface UserLimits {
   ban_reason: string | null;
   banned_at: string | null;
   max_endpoints: number;
+  max_webhooks_per_hour: number;
   max_webhooks_per_day: number;
+  max_webhooks_per_month: number;
   max_notification_channels: number;
   requests_per_minute: number;
 }
@@ -63,7 +65,9 @@ const Admin = () => {
   const [banReason, setBanReason] = useState("");
   const [limitsForm, setLimitsForm] = useState({
     max_endpoints: 10,
+    max_webhooks_per_hour: 100,
     max_webhooks_per_day: 1000,
+    max_webhooks_per_month: 30000,
     max_notification_channels: 5,
     requests_per_minute: 60,
   });
@@ -133,7 +137,9 @@ const Admin = () => {
     setSelectedUser(u);
     setLimitsForm({
       max_endpoints: u.limits?.max_endpoints ?? 10,
+      max_webhooks_per_hour: u.limits?.max_webhooks_per_hour ?? 100,
       max_webhooks_per_day: u.limits?.max_webhooks_per_day ?? 1000,
+      max_webhooks_per_month: u.limits?.max_webhooks_per_month ?? 30000,
       max_notification_channels: u.limits?.max_notification_channels ?? 5,
       requests_per_minute: u.limits?.requests_per_minute ?? 60,
     });
@@ -331,7 +337,7 @@ const Admin = () => {
                       <TableHead className="text-center">Webhooks</TableHead>
                       <TableHead className="text-center">Channels</TableHead>
                       <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-center">Limits</TableHead>
+                      <TableHead className="text-center">Rate Limits</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -382,9 +388,10 @@ const Admin = () => {
                           </TableCell>
                           <TableCell className="text-center">
                             {u.limits ? (
-                              <span className="text-xs text-muted-foreground">
-                                {u.limits.requests_per_minute} req/min
-                              </span>
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <p>{u.limits.requests_per_minute} req/min</p>
+                                <p>{u.limits.max_webhooks_per_hour}/hr · {u.limits.max_webhooks_per_day}/day · {u.limits.max_webhooks_per_month}/mo</p>
+                              </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">Default</span>
                             )}
@@ -443,41 +450,64 @@ const Admin = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Max Endpoints</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.max_endpoints}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, max_endpoints: parseInt(e.target.value) || 0 }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.endpoint_count}</p>
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">Resource Limits</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Max Endpoints</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_endpoints}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_endpoints: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.endpoint_count}</p>
+                </div>
+                <div>
+                  <Label>Max Notification Channels</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_notification_channels}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_notification_channels: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.channel_count}</p>
+                </div>
               </div>
-              <div>
-                <Label>Max Webhooks / Day</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.max_webhooks_per_day}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_day: parseInt(e.target.value) || 0 }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.webhook_count}</p>
-              </div>
-              <div>
-                <Label>Max Notification Channels</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.max_notification_channels}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, max_notification_channels: parseInt(e.target.value) || 0 }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.channel_count}</p>
-              </div>
-              <div>
-                <Label>Rate Limit (req/min)</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.requests_per_minute}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, requests_per_minute: parseInt(e.target.value) || 0 }))}
-                />
+              <Separator />
+              <p className="text-sm font-medium text-muted-foreground">Request Limits</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Rate Limit (req/min)</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.requests_per_minute}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, requests_per_minute: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label>Max Webhooks / Hour</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_webhooks_per_hour}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_hour: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label>Max Webhooks / Day</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_webhooks_per_day}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_day: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current today: {selectedUser?.webhook_count}</p>
+                </div>
+                <div>
+                  <Label>Max Webhooks / Month</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_webhooks_per_month}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_month: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
               </div>
             </div>
             <Separator />

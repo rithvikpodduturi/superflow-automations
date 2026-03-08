@@ -126,6 +126,8 @@ export type Database = {
           max_endpoints: number
           max_notification_channels: number
           max_webhooks_per_day: number
+          max_webhooks_per_hour: number
+          max_webhooks_per_month: number
           requests_per_minute: number
           updated_at: string
           user_id: string
@@ -139,6 +141,8 @@ export type Database = {
           max_endpoints?: number
           max_notification_channels?: number
           max_webhooks_per_day?: number
+          max_webhooks_per_hour?: number
+          max_webhooks_per_month?: number
           requests_per_minute?: number
           updated_at?: string
           user_id: string
@@ -152,6 +156,8 @@ export type Database = {
           max_endpoints?: number
           max_notification_channels?: number
           max_webhooks_per_day?: number
+          max_webhooks_per_hour?: number
+          max_webhooks_per_month?: number
           requests_per_minute?: number
           updated_at?: string
           user_id?: string
