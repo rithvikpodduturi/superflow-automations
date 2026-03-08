@@ -236,6 +236,7 @@ const Admin = () => {
   const filteredUsers = users.filter(
     (u) =>
       (u.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
       u.user_id.toLowerCase().includes(search.toLowerCase())
   );
 
