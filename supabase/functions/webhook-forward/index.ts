@@ -35,7 +35,7 @@ serve(async (req) => {
       })
     }
 
-    const { webhook_id, forward_url } = await req.json()
+    const { webhook_id, forward_url, custom_method, custom_headers, custom_body } = await req.json()
 
     if (!webhook_id || !forward_url) {
       return new Response(JSON.stringify({ error: 'webhook_id and forward_url are required' }), {
