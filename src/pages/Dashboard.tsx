@@ -612,7 +612,7 @@ const Dashboard = () => {
 
         {/* Endpoint config dialog */}
         <Dialog open={!!endpointConfigDialog} onOpenChange={(o) => !o && setEndpointConfigDialog(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configure: {endpointConfigDialog?.name}</DialogTitle>
               <DialogDescription>Set custom responses, API key auth, and notifications</DialogDescription>
