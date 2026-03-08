@@ -54,6 +54,7 @@ interface UserStats {
   created_at: string;
   endpoint_count: number;
   webhook_count: number;
+  webhook_count_today: number;
   channel_count: number;
   limits: UserLimits | null;
 }
