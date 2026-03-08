@@ -370,7 +370,7 @@ const Dashboard = () => {
         </div>
 
         {userRole === "super_admin" && (
-          <Alert><AlertDescription>Super admin mode — viewing all data across users.</AlertDescription></Alert>
+          <Alert><AlertDescription>Super admin mode — access the Admin Panel for platform analytics. Your dashboard shows only your own data.</AlertDescription></Alert>
         )}
 
         {/* Stats cards */}
