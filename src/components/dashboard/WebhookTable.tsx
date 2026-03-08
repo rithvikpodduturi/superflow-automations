@@ -355,11 +355,31 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, 
                   <TableHead className="w-[40px]">
                     <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
                   </TableHead>
-                  {visibleColumns.has("method") && <TableHead>Method</TableHead>}
-                  {visibleColumns.has("path") && <TableHead>Path</TableHead>}
-                  {visibleColumns.has("source_ip") && <TableHead>Source IP</TableHead>}
-                  {visibleColumns.has("content_type") && <TableHead>Content Type</TableHead>}
-                  {visibleColumns.has("timestamp") && <TableHead>Timestamp</TableHead>}
+                  {visibleColumns.has("method") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("method")}>
+                      <span className="flex items-center">Method <SortIcon column="method" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("path") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("path")}>
+                      <span className="flex items-center">Path <SortIcon column="path" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("source_ip") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("source_ip")}>
+                      <span className="flex items-center">Source IP <SortIcon column="source_ip" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("content_type") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("content_type")}>
+                      <span className="flex items-center">Content Type <SortIcon column="content_type" /></span>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has("timestamp") && (
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("timestamp")}>
+                      <span className="flex items-center">Timestamp <SortIcon column="timestamp" /></span>
+                    </TableHead>
+                  )}
                   <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
