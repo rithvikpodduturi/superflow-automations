@@ -137,7 +137,9 @@ const Admin = () => {
     setSelectedUser(u);
     setLimitsForm({
       max_endpoints: u.limits?.max_endpoints ?? 10,
+      max_webhooks_per_hour: u.limits?.max_webhooks_per_hour ?? 100,
       max_webhooks_per_day: u.limits?.max_webhooks_per_day ?? 1000,
+      max_webhooks_per_month: u.limits?.max_webhooks_per_month ?? 30000,
       max_notification_channels: u.limits?.max_notification_channels ?? 5,
       requests_per_minute: u.limits?.requests_per_minute ?? 60,
     });
