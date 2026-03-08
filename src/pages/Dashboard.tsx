@@ -281,14 +281,16 @@ const Dashboard = () => {
       return;
     }
     const endpointId = crypto.randomUUID().slice(0, 8);
+    const tags = newEndpoint.tags ? newEndpoint.tags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) : [];
     const { error } = await (supabase as any).from("webhook_endpoints").insert({
       name: newEndpoint.name, endpoint_id: endpointId, description: newEndpoint.description, user_id: user.id,
+      folder: newEndpoint.folder || null, tags,
     });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Endpoint created!" });
-      setNewEndpoint({ name: "", description: "" });
+      setNewEndpoint({ name: "", description: "", folder: "", tags: "" });
       loadEndpoints();
     }
   };
