@@ -195,8 +195,7 @@ const Dashboard = () => {
     let from = 0;
     const batchSize = 1000;
     while (true) {
-      let query = (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false }).range(from, from + batchSize - 1);
-      if (userRole !== "super_admin") query = query.eq("user_id", user.id);
+      const { data } = await (supabase as any).from("webhooks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).range(from, from + batchSize - 1);
       const { data } = await query;
       if (!data || data.length === 0) break;
       allData.push(...data);
