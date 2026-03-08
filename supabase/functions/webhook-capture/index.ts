@@ -6,6 +6,119 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+async function checkRateLimits(supabase: any, userId: string, limits: any): Promise<string | null> {
+  const now = new Date()
+
+  // Check per-hour limit
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString()
+  const { count: hourCount } = await supabase
+    .from('webhooks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', oneHourAgo)
+
+  if (hourCount !== null && hourCount >= limits.max_webhooks_per_hour) {
+    return `Hourly limit reached (${limits.max_webhooks_per_hour}/hr)`
+  }
+
+  // Check per-day limit
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+  const { count: dayCount } = await supabase
+    .from('webhooks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', oneDayAgo)
+
+  if (dayCount !== null && dayCount >= limits.max_webhooks_per_day) {
+    return `Daily limit reached (${limits.max_webhooks_per_day}/day)`
+  }
+
+  // Check per-month limit
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const { count: monthCount } = await supabase
+    .from('webhooks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', oneMonthAgo)
+
+  if (monthCount !== null && monthCount >= limits.max_webhooks_per_month) {
+    return `Monthly limit reached (${limits.max_webhooks_per_month}/mo)`
+  }
+
+  // Check per-minute rate limit
+  const oneMinAgo = new Date(now.getTime() - 60 * 1000).toISOString()
+  const { count: minCount } = await supabase
+    .from('webhooks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', oneMinAgo)
+
+  if (minCount !== null && minCount >= limits.requests_per_minute) {
+    return `Rate limit reached (${limits.requests_per_minute}/min)`
+  }
+
+  return null
+}
+
+async function sendNotifications(supabase: any, endpoint: any, endpointId: string, req: Request, url: URL, contentType: string) {
+  try {
+    const { data: smtpConfig } = await supabase
+      .from('smtp_configurations')
+      .select('*')
+      .eq('user_id', endpoint.user_id)
+      .eq('is_active', true)
+      .single()
+
+    if (smtpConfig) {
+      const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`
+      fetch(notifyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({
+          user_id: endpoint.user_id,
+          subject: `🔔 New ${req.method} webhook received on "${endpoint.name || endpointId}"`,
+          body: `A new ${req.method} request was received on your webhook endpoint "${endpoint.name || endpointId}".\n\nPath: ${url.pathname}\nSource IP: ${req.headers.get('x-forwarded-for') || 'Unknown'}\nContent-Type: ${contentType || 'N/A'}\nTimestamp: ${new Date().toISOString()}\n\nCheck your dashboard for full details.`,
+          to: smtpConfig.smtp_email,
+        }),
+      }).catch(err => console.error('Notification send error:', err))
+    }
+
+    const { data: channels } = await supabase
+      .from('notification_channels')
+      .select('*')
+      .eq('user_id', endpoint.user_id)
+      .eq('is_active', true)
+
+    if (channels && channels.length > 0) {
+      for (const channel of channels) {
+        try {
+          const message = `🔔 New ${req.method} webhook received on "${endpoint.name || endpointId}"\nPath: ${url.pathname}\nSource: ${req.headers.get('x-forwarded-for') || 'Unknown'}\nTime: ${new Date().toISOString()}`
+          if (channel.channel_type === 'slack') {
+            fetch(channel.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: message }),
+            }).catch(err => console.error('Slack notify error:', err))
+          } else if (channel.channel_type === 'discord') {
+            fetch(channel.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: message }),
+            }).catch(err => console.error('Discord notify error:', err))
+          }
+        } catch (err) {
+          console.error('Channel notify error:', err)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Notification error:', err)
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -43,6 +156,31 @@ serve(async (req) => {
       })
     }
 
+    // Check if user is banned
+    const { data: userLimits } = await supabase
+      .from('user_limits')
+      .select('*')
+      .eq('user_id', endpoint.user_id)
+      .single()
+
+    if (userLimits?.is_banned) {
+      return new Response(JSON.stringify({ error: 'This endpoint is currently suspended' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Enforce rate limits
+    if (userLimits) {
+      const limitError = await checkRateLimits(supabase, endpoint.user_id, userLimits)
+      if (limitError) {
+        return new Response(JSON.stringify({ error: limitError }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
+        })
+      }
+    }
+
     // Check API key authentication if configured
     if (endpoint.api_key) {
       const providedKey = req.headers.get('x-api-key') || req.headers.get('authorization')?.replace('Bearer ', '')
@@ -56,15 +194,11 @@ serve(async (req) => {
 
     // Get request headers
     const headers: Record<string, string> = {}
-    req.headers.forEach((value, key) => {
-      headers[key] = value
-    })
+    req.headers.forEach((value, key) => { headers[key] = value })
 
     // Get query parameters
     const queryParams: Record<string, string> = {}
-    url.searchParams.forEach((value, key) => {
-      queryParams[key] = value
-    })
+    url.searchParams.forEach((value, key) => { queryParams[key] = value })
 
     // Get request body
     let body = null
@@ -74,11 +208,7 @@ serve(async (req) => {
       try {
         const bodyText = await req.text()
         if (bodyText) {
-          if (contentType.includes('application/json')) {
-            body = JSON.parse(bodyText)
-          } else {
-            body = bodyText
-          }
+          body = contentType.includes('application/json') ? JSON.parse(bodyText) : bodyText
         }
       } catch (error) {
         console.error('Error parsing request body:', error)
@@ -108,68 +238,9 @@ serve(async (req) => {
       })
     }
 
-    // Auto-notify via email if enabled
+    // Auto-notify if enabled
     if (endpoint.notify_on_receive) {
-      try {
-        // Get SMTP config
-        const { data: smtpConfig } = await supabase
-          .from('smtp_configurations')
-          .select('*')
-          .eq('user_id', endpoint.user_id)
-          .eq('is_active', true)
-          .single()
-
-        if (smtpConfig) {
-          // Fire and forget - call the send-notification function internally
-          const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`
-          fetch(notifyUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            },
-            body: JSON.stringify({
-              user_id: endpoint.user_id,
-              subject: `🔔 New ${req.method} webhook received on "${endpoint.name || endpointId}"`,
-              body: `A new ${req.method} request was received on your webhook endpoint "${endpoint.name || endpointId}".\n\nPath: ${url.pathname}\nSource IP: ${req.headers.get('x-forwarded-for') || 'Unknown'}\nContent-Type: ${contentType || 'N/A'}\nTimestamp: ${new Date().toISOString()}\n\nCheck your dashboard for full details.`,
-              to: smtpConfig.smtp_email,
-            }),
-          }).catch(err => console.error('Notification send error:', err))
-        }
-
-        // Notify via Slack/Discord channels
-        const { data: channels } = await supabase
-          .from('notification_channels')
-          .select('*')
-          .eq('user_id', endpoint.user_id)
-          .eq('is_active', true)
-
-        if (channels && channels.length > 0) {
-          for (const channel of channels) {
-            try {
-              const message = `🔔 New ${req.method} webhook received on "${endpoint.name || endpointId}"\nPath: ${url.pathname}\nSource: ${req.headers.get('x-forwarded-for') || 'Unknown'}\nTime: ${new Date().toISOString()}`
-              
-              if (channel.channel_type === 'slack') {
-                fetch(channel.webhook_url, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ text: message }),
-                }).catch(err => console.error('Slack notify error:', err))
-              } else if (channel.channel_type === 'discord') {
-                fetch(channel.webhook_url, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ content: message }),
-                }).catch(err => console.error('Discord notify error:', err))
-              }
-            } catch (err) {
-              console.error('Channel notify error:', err)
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Notification error:', err)
-      }
+      sendNotifications(supabase, endpoint, endpointId, req, url, contentType)
     }
 
     // Return custom response if configured

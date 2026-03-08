@@ -450,41 +450,64 @@ const Admin = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Max Endpoints</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.max_endpoints}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, max_endpoints: parseInt(e.target.value) || 0 }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.endpoint_count}</p>
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">Resource Limits</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Max Endpoints</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_endpoints}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_endpoints: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.endpoint_count}</p>
+                </div>
+                <div>
+                  <Label>Max Notification Channels</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_notification_channels}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_notification_channels: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.channel_count}</p>
+                </div>
               </div>
-              <div>
-                <Label>Max Webhooks / Day</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.max_webhooks_per_day}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_day: parseInt(e.target.value) || 0 }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.webhook_count}</p>
-              </div>
-              <div>
-                <Label>Max Notification Channels</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.max_notification_channels}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, max_notification_channels: parseInt(e.target.value) || 0 }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.channel_count}</p>
-              </div>
-              <div>
-                <Label>Rate Limit (req/min)</Label>
-                <Input
-                  type="number"
-                  value={limitsForm.requests_per_minute}
-                  onChange={(e) => setLimitsForm((p) => ({ ...p, requests_per_minute: parseInt(e.target.value) || 0 }))}
-                />
+              <Separator />
+              <p className="text-sm font-medium text-muted-foreground">Request Limits</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Rate Limit (req/min)</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.requests_per_minute}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, requests_per_minute: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label>Max Webhooks / Hour</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_webhooks_per_hour}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_hour: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label>Max Webhooks / Day</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_webhooks_per_day}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_day: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current today: {selectedUser?.webhook_count}</p>
+                </div>
+                <div>
+                  <Label>Max Webhooks / Month</Label>
+                  <Input
+                    type="number"
+                    value={limitsForm.max_webhooks_per_month}
+                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_month: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
               </div>
             </div>
             <Separator />
