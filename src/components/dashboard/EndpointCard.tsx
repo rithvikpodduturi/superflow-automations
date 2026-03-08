@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Copy, Eye, Settings, Trash2, Shield, Bell, Pencil, Check, X,
-  Tag, FolderOpen, Plus,
+  Tag, FolderOpen, Plus, Code,
 } from "lucide-react";
+import { CodeSnippets } from "@/components/dashboard/CodeSnippets";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -156,6 +157,11 @@ export function EndpointCard({
                 <Eye className="h-4 w-4 mr-1" /> Requests
                 <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{requestCount}</Badge>
               </Button>
+              <CodeSnippets endpointId={ep.endpoint_id} apiKey={ep.api_key}>
+                <Button variant="outline" size="sm" title="Code Snippets">
+                  <Code className="h-4 w-4" />
+                </Button>
+              </CodeSnippets>
               <Button variant="outline" size="sm" onClick={onConfigure}>
                 <Settings className="h-4 w-4" />
               </Button>
