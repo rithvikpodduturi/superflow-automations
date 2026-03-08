@@ -14,6 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      endpoint_health_checks: {
+        Row: {
+          check_url: string | null
+          created_at: string
+          endpoint_id: string
+          id: string
+          interval_seconds: number
+          is_active: boolean
+          last_check_at: string | null
+          last_response_time_ms: number | null
+          last_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_url?: string | null
+          created_at?: string
+          endpoint_id: string
+          id?: string
+          interval_seconds?: number
+          is_active?: boolean
+          last_check_at?: string | null
+          last_response_time_ms?: number | null
+          last_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_url?: string | null
+          created_at?: string
+          endpoint_id?: string
+          id?: string
+          interval_seconds?: number
+          is_active?: boolean
+          last_check_at?: string | null
+          last_response_time_ms?: number | null
+          last_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "endpoint_health_checks_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forward_configs: {
+        Row: {
+          created_at: string
+          custom_headers: Json
+          endpoint_id: string
+          forward_url: string
+          id: string
+          is_active: boolean
+          max_retries: number
+          retry_delay_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_headers?: Json
+          endpoint_id: string
+          forward_url: string
+          id?: string
+          is_active?: boolean
+          max_retries?: number
+          retry_delay_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_headers?: Json
+          endpoint_id?: string
+          forward_url?: string
+          id?: string
+          is_active?: boolean
+          max_retries?: number
+          retry_delay_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forward_configs_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: true
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_sheets_config: {
         Row: {
           auto_push: boolean
@@ -265,6 +362,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      webhook_forwards: {
+        Row: {
+          attempts: number
+          created_at: string
+          endpoint_id: string
+          forward_url: string
+          id: string
+          last_error: string | null
+          last_response_body: string | null
+          last_response_status: number | null
+          max_retries: number
+          next_retry_at: string | null
+          response_time_ms: number | null
+          status: string
+          updated_at: string
+          user_id: string
+          webhook_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          endpoint_id: string
+          forward_url: string
+          id?: string
+          last_error?: string | null
+          last_response_body?: string | null
+          last_response_status?: number | null
+          max_retries?: number
+          next_retry_at?: string | null
+          response_time_ms?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          webhook_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          endpoint_id?: string
+          forward_url?: string
+          id?: string
+          last_error?: string | null
+          last_response_body?: string | null
+          last_response_status?: number | null
+          max_retries?: number
+          next_retry_at?: string | null
+          response_time_ms?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_forwards_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_forwards_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_transforms: {
         Row: {
