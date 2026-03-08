@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Eye, Search, Download, Send, ChevronLeft, ChevronRight, Calendar, Code, Sparkles } from "lucide-react";
+import { Eye, Search, Download, ChevronLeft, ChevronRight, Code, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { SmartWebhookView } from "./SmartWebhookView";
+import { WebhookReplayDialog } from "./WebhookReplayDialog";
 
 interface WebhookRequest {
   id: string;
@@ -48,8 +48,6 @@ export function WebhookTable({ requests, endpoints }: Props) {
   const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null);
-  const [forwardUrl, setForwardUrl] = useState("");
-  const [forwarding, setForwarding] = useState(false);
   const [viewMode, setViewMode] = useState<"smart" | "developer">("smart");
   const { toast } = useToast();
 
@@ -96,36 +94,6 @@ export function WebhookTable({ requests, endpoints }: Props) {
       URL.revokeObjectURL(url);
     }
     toast({ title: `Exported ${filtered.length} records as ${format.toUpperCase()}` });
-  };
-
-  const forwardWebhook = async (webhookId: string) => {
-    if (!forwardUrl) return;
-    setForwarding(true);
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/webhook-forward`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ webhook_id: webhookId, forward_url: forwardUrl }),
-        }
-      );
-      const result = await response.json();
-      if (response.ok) {
-        toast({ title: "Webhook forwarded!", description: `Status: ${result.forward_status}` });
-      } else {
-        toast({ title: "Forward failed", description: result.error, variant: "destructive" });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setForwarding(false);
-    }
   };
 
   const parseFormData = (body: any): Record<string, string> => {
@@ -304,26 +272,12 @@ export function WebhookTable({ requests, endpoints }: Props) {
                                 </>
                               )}
 
-                              {/* Forward/Replay */}
-                              <div className="border-t pt-4">
-                                <Label className="text-sm font-semibold">Forward / Replay</Label>
-                                <div className="flex gap-2 mt-2">
-                                  <Input
-                                    placeholder="https://your-server.com/webhook"
-                                    value={forwardUrl}
-                                    onChange={(e) => setForwardUrl(e.target.value)}
-                                    className="flex-1"
-                                  />
-                                  <Button
-                                    onClick={() => forwardWebhook(request.id)}
-                                    disabled={forwarding || !forwardUrl}
-                                    size="sm"
-                                  >
-                                    <Send className="h-4 w-4 mr-1" />
-                                    {forwarding ? "Sending..." : "Forward"}
-                                  </Button>
-                                </div>
-                              </div>
+                              <WebhookReplayDialog
+                                webhookId={request.id}
+                                originalMethod={request.method}
+                                originalHeaders={request.headers}
+                                originalBody={request.body}
+                              />
                             </div>
                           </DialogContent>
                         </Dialog>

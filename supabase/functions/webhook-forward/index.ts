@@ -35,7 +35,7 @@ serve(async (req) => {
       })
     }
 
-    const { webhook_id, forward_url } = await req.json()
+    const { webhook_id, forward_url, custom_method, custom_headers, custom_body } = await req.json()
 
     if (!webhook_id || !forward_url) {
       return new Response(JSON.stringify({ error: 'webhook_id and forward_url are required' }), {
@@ -59,17 +59,20 @@ serve(async (req) => {
       })
     }
 
-    // Forward the request
+    // Forward the request with optional overrides
+    const method = custom_method || webhook.method || 'POST'
     const forwardHeaders: Record<string, string> = {
       'Content-Type': webhook.content_type || 'application/json',
       'X-Forwarded-From': 'webhook-capture',
       'X-Original-Method': webhook.method || 'POST',
+      ...(custom_headers && typeof custom_headers === 'object' ? custom_headers : {}),
     }
 
+    const bodyToSend = custom_body !== undefined ? custom_body : webhook.body
     const forwardResponse = await fetch(forward_url, {
-      method: webhook.method || 'POST',
+      method,
       headers: forwardHeaders,
-      body: webhook.body ? JSON.stringify(webhook.body) : undefined,
+      body: bodyToSend ? (typeof bodyToSend === 'string' ? bodyToSend : JSON.stringify(bodyToSend)) : undefined,
     })
 
     const responseBody = await forwardResponse.text()

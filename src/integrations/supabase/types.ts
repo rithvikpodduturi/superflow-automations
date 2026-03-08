@@ -266,6 +266,53 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_transforms: {
+        Row: {
+          created_at: string
+          endpoint_id: string
+          execution_order: number
+          id: string
+          is_active: boolean
+          name: string
+          transform_config: Json
+          transform_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_id: string
+          execution_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          transform_config?: Json
+          transform_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_id?: string
+          execution_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          transform_config?: Json
+          transform_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_transforms_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhooks: {
         Row: {
           body: Json | null

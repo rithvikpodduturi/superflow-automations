@@ -6,6 +6,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return undefined
+  return path.split('.').reduce((acc, key) => acc?.[key], obj)
+}
+
+function applyTemplate(template: any, source: any): any {
+  if (typeof template === 'string') {
+    return template.replace(/\{\{([\w.]+)\}\}/g, (_, path) => {
+      const val = getNestedValue(source, path)
+      return val !== undefined ? String(val) : ''
+    })
+  }
+  if (Array.isArray(template)) return template.map(item => applyTemplate(item, source))
+  if (typeof template === 'object' && template !== null) {
+    const result: Record<string, any> = {}
+    for (const [key, value] of Object.entries(template)) {
+      result[key] = applyTemplate(value, source)
+    }
+    return result
+  }
+  return template
+}
+
 async function checkRateLimits(supabase: any, userId: string, limits: any): Promise<string | null> {
   const now = new Date()
 
@@ -215,6 +238,53 @@ serve(async (req) => {
       }
     }
 
+    // Apply transforms
+    const { data: transforms } = await supabase
+      .from('webhook_transforms')
+      .select('*')
+      .eq('endpoint_id', endpoint.id)
+      .eq('is_active', true)
+      .order('execution_order')
+
+    let transformedBody = body
+
+    if (transforms && transforms.length > 0) {
+      for (const transform of transforms) {
+        const config = transform.transform_config
+
+        if (transform.transform_type === 'filter') {
+          // Check if webhook matches filter condition
+          const fieldValue = getNestedValue(transformedBody, config.field)
+          let matches = false
+          if (config.operator === 'equals') matches = fieldValue === config.value
+          else if (config.operator === 'contains') matches = String(fieldValue || '').includes(config.value)
+          else if (config.operator === 'exists') matches = fieldValue !== undefined && fieldValue !== null
+
+          if (!matches) {
+            // Skip storage — return response without inserting
+            const responseHeaders: Record<string, string> = { ...corsHeaders, 'Content-Type': 'application/json' }
+            if (endpoint.response_headers && typeof endpoint.response_headers === 'object') {
+              Object.entries(endpoint.response_headers).forEach(([key, value]) => {
+                responseHeaders[key] = String(value)
+              })
+            }
+            return new Response(endpoint.response_body || JSON.stringify({ success: true, filtered: true }), {
+              status: endpoint.response_status_code || 200,
+              headers: responseHeaders,
+            })
+          }
+        } else if (transform.transform_type === 'field_map' && config.mappings) {
+          const mapped: Record<string, any> = {}
+          for (const m of config.mappings) {
+            mapped[m.to] = getNestedValue(transformedBody, m.from)
+          }
+          transformedBody = mapped
+        } else if (transform.transform_type === 'template' && config.template) {
+          transformedBody = applyTemplate(config.template, body)
+        }
+      }
+    }
+
     // Store webhook data
     const { error: insertError } = await supabase
       .from('webhooks')
@@ -222,7 +292,7 @@ serve(async (req) => {
         url_path: url.pathname,
         method: req.method,
         headers,
-        body,
+        body: transformedBody,
         query_params: Object.keys(queryParams).length > 0 ? queryParams : null,
         source_ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
         user_agent: req.headers.get('user-agent'),
