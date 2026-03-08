@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, Search, Download, ChevronLeft, ChevronRight, Code, Sparkles, Columns, Loader2 } from "lucide-react";
+import { Eye, Search, Download, ChevronLeft, ChevronRight, Code, Sparkles, Columns, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SmartWebhookView } from "./SmartWebhookView";
 import { WebhookReplayDialog } from "./WebhookReplayDialog";
