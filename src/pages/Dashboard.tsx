@@ -39,6 +39,8 @@ interface WebhookEndpoint {
   response_body: string;
   api_key: string | null;
   notify_on_receive: boolean;
+  folder: string | null;
+  tags: string[];
 }
 
 interface WebhookRequest {
