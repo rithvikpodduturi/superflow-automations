@@ -65,7 +65,9 @@ const Admin = () => {
   const [banReason, setBanReason] = useState("");
   const [limitsForm, setLimitsForm] = useState({
     max_endpoints: 10,
+    max_webhooks_per_hour: 100,
     max_webhooks_per_day: 1000,
+    max_webhooks_per_month: 30000,
     max_notification_channels: 5,
     requests_per_minute: 60,
   });
