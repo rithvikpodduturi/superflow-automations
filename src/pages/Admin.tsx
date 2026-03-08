@@ -389,12 +389,15 @@ const Admin = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <span className={isOverWebhooks ? "text-destructive font-bold" : ""}>
-                              {u.webhook_count}
-                            </span>
-                            {u.limits && (
-                              <span className="text-xs text-muted-foreground">/{u.limits.max_webhooks_per_day}</span>
-                            )}
+                            <div>
+                              <span className={isOverWebhooks ? "text-destructive font-bold" : ""}>
+                                {u.webhook_count_today}
+                              </span>
+                              {u.limits && (
+                                <span className="text-xs text-muted-foreground">/{u.limits.max_webhooks_per_day}</span>
+                              )}
+                              <p className="text-[10px] text-muted-foreground">{u.webhook_count} total</p>
+                            </div>
                           </TableCell>
                           <TableCell className="text-center">
                             {u.channel_count}
