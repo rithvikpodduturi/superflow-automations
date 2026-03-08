@@ -388,9 +388,10 @@ const Admin = () => {
                           </TableCell>
                           <TableCell className="text-center">
                             {u.limits ? (
-                              <span className="text-xs text-muted-foreground">
-                                {u.limits.requests_per_minute} req/min
-                              </span>
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <p>{u.limits.requests_per_minute} req/min</p>
+                                <p>{u.limits.max_webhooks_per_hour}/hr · {u.limits.max_webhooks_per_day}/day · {u.limits.max_webhooks_per_month}/mo</p>
+                              </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">Default</span>
                             )}
