@@ -48,8 +48,6 @@ export function WebhookTable({ requests, endpoints }: Props) {
   const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null);
-  const [forwardUrl, setForwardUrl] = useState("");
-  const [forwarding, setForwarding] = useState(false);
   const [viewMode, setViewMode] = useState<"smart" | "developer">("smart");
   const { toast } = useToast();
 
