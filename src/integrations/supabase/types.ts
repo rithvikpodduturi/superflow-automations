@@ -321,6 +321,7 @@ export type Database = {
           created_at: string
           description: string | null
           endpoint_id: string
+          folder: string | null
           id: string
           is_active: boolean
           name: string | null
@@ -328,6 +329,7 @@ export type Database = {
           response_body: string | null
           response_headers: Json | null
           response_status_code: number
+          tags: string[] | null
           updated_at: string
           user_id: string
         }
@@ -336,6 +338,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           endpoint_id: string
+          folder?: string | null
           id?: string
           is_active?: boolean
           name?: string | null
@@ -343,6 +346,7 @@ export type Database = {
           response_body?: string | null
           response_headers?: Json | null
           response_status_code?: number
+          tags?: string[] | null
           updated_at?: string
           user_id: string
         }
@@ -351,6 +355,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           endpoint_id?: string
+          folder?: string | null
           id?: string
           is_active?: boolean
           name?: string | null
@@ -358,6 +363,7 @@ export type Database = {
           response_body?: string | null
           response_headers?: Json | null
           response_status_code?: number
+          tags?: string[] | null
           updated_at?: string
           user_id?: string
         }
