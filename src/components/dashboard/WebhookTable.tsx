@@ -55,7 +55,7 @@ const ALL_COLUMNS = [
 
 type ColumnKey = typeof ALL_COLUMNS[number]["key"];
 
-export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll }: Props) {
+export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, activeEndpointFilter, onClearEndpointFilter }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [endpointFilter, setEndpointFilter] = useState<string>("all");
