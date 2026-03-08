@@ -48,8 +48,9 @@ interface UserLimits {
 
 interface UserStats {
   user_id: string;
-  email?: string;
+  email: string | null;
   full_name: string | null;
+  role: string;
   created_at: string;
   endpoint_count: number;
   webhook_count: number;
