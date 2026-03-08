@@ -96,36 +96,6 @@ export function WebhookTable({ requests, endpoints }: Props) {
     toast({ title: `Exported ${filtered.length} records as ${format.toUpperCase()}` });
   };
 
-  const forwardWebhook = async (webhookId: string) => {
-    if (!forwardUrl) return;
-    setForwarding(true);
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/webhook-forward`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ webhook_id: webhookId, forward_url: forwardUrl }),
-        }
-      );
-      const result = await response.json();
-      if (response.ok) {
-        toast({ title: "Webhook forwarded!", description: `Status: ${result.forward_status}` });
-      } else {
-        toast({ title: "Forward failed", description: result.error, variant: "destructive" });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setForwarding(false);
-    }
-  };
-
   const parseFormData = (body: any): Record<string, string> => {
     if (typeof body === "string") {
       const params = new URLSearchParams(body);
