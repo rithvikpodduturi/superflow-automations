@@ -313,6 +313,80 @@ serve(async (req) => {
       sendNotifications(supabase, endpoint, endpointId, req, url, contentType)
     }
 
+    // Auto-forward with retry if configured
+    try {
+      const { data: forwardConfig } = await supabase
+        .from('forward_configs')
+        .select('*')
+        .eq('endpoint_id', endpoint.id)
+        .eq('is_active', true)
+        .single()
+
+      if (forwardConfig) {
+        // Get the just-inserted webhook ID
+        const { data: latestWebhook } = await supabase
+          .from('webhooks')
+          .select('id')
+          .eq('user_id', endpoint.user_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (latestWebhook) {
+          const customHeaders = forwardConfig.custom_headers || {}
+          const forwardHeaders: Record<string, string> = {
+            'Content-Type': contentType || 'application/json',
+            'X-Forwarded-From': 'webhook-capture',
+            'X-Original-Method': req.method,
+            ...(typeof customHeaders === 'object' ? customHeaders : {}),
+          }
+
+          try {
+            const startTime = Date.now()
+            const fwdResponse = await fetch(forwardConfig.forward_url, {
+              method: req.method,
+              headers: forwardHeaders,
+              body: transformedBody ? (typeof transformedBody === 'string' ? transformedBody : JSON.stringify(transformedBody)) : undefined,
+            })
+            const responseTime = Date.now() - startTime
+            const fwdBody = await fwdResponse.text()
+
+            await supabase.from('webhook_forwards').insert({
+              webhook_id: latestWebhook.id,
+              endpoint_id: endpoint.id,
+              user_id: endpoint.user_id,
+              forward_url: forwardConfig.forward_url,
+              status: fwdResponse.ok ? 'delivered' : (forwardConfig.max_retries > 0 ? 'retrying' : 'failed'),
+              attempts: 1,
+              max_retries: forwardConfig.max_retries,
+              last_response_status: fwdResponse.status,
+              last_response_body: fwdBody.substring(0, 1000),
+              response_time_ms: responseTime,
+              next_retry_at: !fwdResponse.ok && forwardConfig.max_retries > 0
+                ? new Date(Date.now() + forwardConfig.retry_delay_seconds * 1000).toISOString()
+                : null,
+            })
+          } catch (fwdErr: any) {
+            await supabase.from('webhook_forwards').insert({
+              webhook_id: latestWebhook.id,
+              endpoint_id: endpoint.id,
+              user_id: endpoint.user_id,
+              forward_url: forwardConfig.forward_url,
+              status: forwardConfig.max_retries > 0 ? 'retrying' : 'failed',
+              attempts: 1,
+              max_retries: forwardConfig.max_retries,
+              last_error: fwdErr.message,
+              next_retry_at: forwardConfig.max_retries > 0
+                ? new Date(Date.now() + forwardConfig.retry_delay_seconds * 1000).toISOString()
+                : null,
+            })
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auto-forward check error:', err)
+    }
+
     // Auto-push to Google Sheets if configured
     try {
       const { data: sheetsConfig } = await supabase
