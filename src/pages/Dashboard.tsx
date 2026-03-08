@@ -21,6 +21,7 @@ import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
 import { NotificationChannels } from "@/components/dashboard/NotificationChannels";
 import { IntegrationTemplates } from "@/components/dashboard/IntegrationTemplates";
 import { GoogleSheetsConfig } from "@/components/dashboard/GoogleSheetsConfig";
+import { WebhookTransforms } from "@/components/dashboard/WebhookTransforms";
 
 interface WebhookEndpoint {
   id: string;
