@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Copy, Eye, Settings, Trash2, Shield, Bell, Pencil, Check, X,
-  Tag, FolderOpen, Plus,
+  Tag, FolderOpen, Plus, Code,
 } from "lucide-react";
+import { CodeSnippets } from "@/components/dashboard/CodeSnippets";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
