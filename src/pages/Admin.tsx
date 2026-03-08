@@ -37,7 +37,9 @@ interface UserLimits {
   ban_reason: string | null;
   banned_at: string | null;
   max_endpoints: number;
+  max_webhooks_per_hour: number;
   max_webhooks_per_day: number;
+  max_webhooks_per_month: number;
   max_notification_channels: number;
   requests_per_minute: number;
 }
