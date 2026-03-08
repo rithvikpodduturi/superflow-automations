@@ -69,11 +69,13 @@ serve(async (req) => {
     }
 
     const bodyToSend = custom_body !== undefined ? custom_body : webhook.body
+    const startTime = Date.now()
     const forwardResponse = await fetch(forward_url, {
       method,
       headers: forwardHeaders,
       body: bodyToSend ? (typeof bodyToSend === 'string' ? bodyToSend : JSON.stringify(bodyToSend)) : undefined,
     })
+    const responseTime = Date.now() - startTime
 
     const responseBody = await forwardResponse.text()
 
@@ -81,6 +83,7 @@ serve(async (req) => {
       success: true,
       forward_status: forwardResponse.status,
       forward_response: responseBody.substring(0, 1000),
+      response_time_ms: responseTime,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
