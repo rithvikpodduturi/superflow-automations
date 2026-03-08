@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminUsageChart } from "@/components/dashboard/AdminUsageChart";
 
 interface UserProfile {
@@ -48,7 +47,6 @@ interface UserLimits {
 
 interface UserStats {
   user_id: string;
-  email: string | null;
   full_name: string | null;
   role: string;
   created_at: string;
@@ -101,40 +99,32 @@ const Admin = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      // Load profiles (includes email now)
-      const { data: profiles } = await (supabase as any).from("profiles").select("*");
+      // Load profiles (super_admin can see profiles via RLS)
+      const { data: profiles } = await (supabase as any).from("profiles").select("user_id, full_name, created_at");
       // Load user roles
       const { data: roles } = await (supabase as any).from("user_roles").select("user_id, role");
-      // Load endpoints count per user
-      const { data: endpoints } = await (supabase as any).from("webhook_endpoints").select("user_id");
-      // Load webhooks count per user (last 24h for daily count)
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: webhooksToday } = await (supabase as any).from("webhooks").select("user_id").gte("created_at", oneDayAgo);
-      // Load total webhooks
-      const { data: webhooksTotal } = await (supabase as any).from("webhooks").select("user_id");
-      // Load channels count per user
-      const { data: channels } = await (supabase as any).from("notification_channels").select("user_id");
       // Load limits
       const { data: limits } = await (supabase as any).from("user_limits").select("*");
+      // Load aggregate stats via secure RPC function (no raw data access)
+      const { data: statsData } = await (supabase as any).rpc("admin_get_user_stats");
+
+      const statsMap: Record<string, any> = {};
+      (statsData || []).forEach((s: any) => { statsMap[s.user_id] = s; });
 
       const userStats: UserStats[] = (profiles || []).map((p: UserProfile) => {
-        const endpointCount = (endpoints || []).filter((e: any) => e.user_id === p.user_id).length;
-        const webhookCountToday = (webhooksToday || []).filter((w: any) => w.user_id === p.user_id).length;
-        const webhookCountTotal = (webhooksTotal || []).filter((w: any) => w.user_id === p.user_id).length;
-        const channelCount = (channels || []).filter((c: any) => c.user_id === p.user_id).length;
+        const stats = statsMap[p.user_id] || {};
         const userLimits = (limits || []).find((l: any) => l.user_id === p.user_id) || null;
-        const userRole = (roles || []).find((r: any) => r.user_id === p.user_id);
+        const role = (roles || []).find((r: any) => r.user_id === p.user_id);
 
         return {
           user_id: p.user_id,
-          email: p.email,
           full_name: p.full_name,
-          role: userRole?.role || "user",
+          role: role?.role || "user",
           created_at: p.created_at,
-          endpoint_count: endpointCount,
-          webhook_count: webhookCountTotal,
-          webhook_count_today: webhookCountToday,
-          channel_count: channelCount,
+          endpoint_count: Number(stats.endpoint_count) || 0,
+          webhook_count: Number(stats.webhook_count) || 0,
+          webhook_count_today: Number(stats.webhook_count_today) || 0,
+          channel_count: Number(stats.channel_count) || 0,
           limits: userLimits,
         };
       });
@@ -215,14 +205,6 @@ const Admin = () => {
         if (error) throw error;
       }
 
-      // Deactivate all endpoints if banning
-      if (ban) {
-        await (supabase as any)
-          .from("webhook_endpoints")
-          .update({ is_active: false })
-          .eq("user_id", selectedUser.user_id);
-      }
-
       toast({ title: ban ? "User suspended" : "User reinstated" });
       setBanDialog(false);
       loadUsers();
@@ -236,7 +218,6 @@ const Admin = () => {
   const filteredUsers = users.filter(
     (u) =>
       (u.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
       u.user_id.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -266,7 +247,7 @@ const Admin = () => {
                 <ShieldAlert className="h-7 w-7 text-destructive" />
                 Admin Panel
               </h1>
-              <p className="text-muted-foreground">Manage users, set limits, and monitor platform usage</p>
+              <p className="text-muted-foreground">Manage users, set limits, and monitor platform analytics</p>
             </div>
           </div>
           <ThemeToggle />
@@ -320,25 +301,25 @@ const Admin = () => {
           </Card>
         </div>
 
-        {/* Usage Chart */}
-        <AdminUsageChart users={users.map(u => ({ user_id: u.user_id, full_name: u.full_name }))} />
+        {/* Usage Chart — now uses aggregate RPC */}
+        <AdminUsageChart />
 
-        {/* Search */}
+        {/* Search — no email shown for privacy */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search users by name, email, or ID..."
+            placeholder="Search users by name or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
 
-        {/* Users table */}
+        {/* Users table — shows only aggregate stats, no raw data */}
         <Card>
           <CardHeader>
             <CardTitle>Users</CardTitle>
-            <CardDescription>View usage stats, set limits, and manage accounts</CardDescription>
+            <CardDescription>View aggregate usage stats, set limits, and manage accounts (no raw user data is accessible)</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -363,13 +344,12 @@ const Admin = () => {
                     {filteredUsers.map((u) => {
                       const isBanned = u.limits?.is_banned;
                       const isOverEndpoints = u.limits && u.endpoint_count >= u.limits.max_endpoints;
-                      const isOverWebhooks = u.limits && u.webhook_count >= u.limits.max_webhooks_per_day;
+                      const isOverWebhooks = u.limits && u.webhook_count_today >= u.limits.max_webhooks_per_day;
                       return (
                         <TableRow key={u.user_id} className={isBanned ? "opacity-60" : ""}>
                           <TableCell>
                             <div>
                               <p className="font-medium">{u.full_name || "Unnamed User"}</p>
-                              {u.email && <p className="text-xs text-muted-foreground">{u.email}</p>}
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                                   {u.role}
@@ -416,7 +396,7 @@ const Admin = () => {
                             {u.limits ? (
                               <div className="text-xs text-muted-foreground space-y-0.5">
                                 <p>{u.limits.requests_per_minute} req/min</p>
-                                <p>{u.limits.max_webhooks_per_hour}/hr · {u.limits.max_webhooks_per_day}/day · {u.limits.max_webhooks_per_month}/mo</p>
+                                <p>{u.limits.max_webhooks_per_hour}/hr · {u.limits.max_webhooks_per_day}/day</p>
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">Default</span>
@@ -481,20 +461,12 @@ const Admin = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Max Endpoints</Label>
-                  <Input
-                    type="number"
-                    value={limitsForm.max_endpoints}
-                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_endpoints: parseInt(e.target.value) || 0 }))}
-                  />
+                  <Input type="number" value={limitsForm.max_endpoints} onChange={(e) => setLimitsForm((p) => ({ ...p, max_endpoints: parseInt(e.target.value) || 0 }))} />
                   <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.endpoint_count}</p>
                 </div>
                 <div>
                   <Label>Max Notification Channels</Label>
-                  <Input
-                    type="number"
-                    value={limitsForm.max_notification_channels}
-                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_notification_channels: parseInt(e.target.value) || 0 }))}
-                  />
+                  <Input type="number" value={limitsForm.max_notification_channels} onChange={(e) => setLimitsForm((p) => ({ ...p, max_notification_channels: parseInt(e.target.value) || 0 }))} />
                   <p className="text-xs text-muted-foreground mt-1">Current: {selectedUser?.channel_count}</p>
                 </div>
               </div>
@@ -503,36 +475,19 @@ const Admin = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Rate Limit (req/min)</Label>
-                  <Input
-                    type="number"
-                    value={limitsForm.requests_per_minute}
-                    onChange={(e) => setLimitsForm((p) => ({ ...p, requests_per_minute: parseInt(e.target.value) || 0 }))}
-                  />
+                  <Input type="number" value={limitsForm.requests_per_minute} onChange={(e) => setLimitsForm((p) => ({ ...p, requests_per_minute: parseInt(e.target.value) || 0 }))} />
                 </div>
                 <div>
                   <Label>Max Webhooks / Hour</Label>
-                  <Input
-                    type="number"
-                    value={limitsForm.max_webhooks_per_hour}
-                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_hour: parseInt(e.target.value) || 0 }))}
-                  />
+                  <Input type="number" value={limitsForm.max_webhooks_per_hour} onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_hour: parseInt(e.target.value) || 0 }))} />
                 </div>
                 <div>
                   <Label>Max Webhooks / Day</Label>
-                  <Input
-                    type="number"
-                    value={limitsForm.max_webhooks_per_day}
-                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_day: parseInt(e.target.value) || 0 }))}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Current today: {selectedUser?.webhook_count}</p>
+                  <Input type="number" value={limitsForm.max_webhooks_per_day} onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_day: parseInt(e.target.value) || 0 }))} />
                 </div>
                 <div>
                   <Label>Max Webhooks / Month</Label>
-                  <Input
-                    type="number"
-                    value={limitsForm.max_webhooks_per_month}
-                    onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_month: parseInt(e.target.value) || 0 }))}
-                  />
+                  <Input type="number" value={limitsForm.max_webhooks_per_month} onChange={(e) => setLimitsForm((p) => ({ ...p, max_webhooks_per_month: parseInt(e.target.value) || 0 }))} />
                 </div>
               </div>
             </div>
