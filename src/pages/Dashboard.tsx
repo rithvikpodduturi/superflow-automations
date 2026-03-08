@@ -473,62 +473,116 @@ const Dashboard = () => {
                     <Label>Description (optional)</Label>
                     <Input value={newEndpoint.description} onChange={(e) => setNewEndpoint((p) => ({ ...p, description: e.target.value }))} placeholder="For user signups" />
                   </div>
+                  <div>
+                    <Label>Folder (optional)</Label>
+                    <Input value={newEndpoint.folder} onChange={(e) => setNewEndpoint((p) => ({ ...p, folder: e.target.value }))} placeholder="e.g. Production" />
+                  </div>
+                  <div>
+                    <Label>Tags (comma-separated, optional)</Label>
+                    <Input value={newEndpoint.tags} onChange={(e) => setNewEndpoint((p) => ({ ...p, tags: e.target.value }))} placeholder="e.g. payments, stripe" />
+                  </div>
                 </div>
                 <Button onClick={createEndpoint}>Create Endpoint</Button>
               </CardContent>
             </Card>
 
-            <div className="grid gap-3">
-              {endpoints.map((ep) => (
-                <Card key={ep.id}>
-                  <CardContent className="p-4">
-                    <div className="flex flex-col gap-3">
-                      {/* Top row: name, badges, actions */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold truncate">{ep.name}</h3>
-                            <Badge variant={ep.is_active ? "default" : "secondary"} className="text-xs">{ep.is_active ? "Active" : "Inactive"}</Badge>
-                            {ep.api_key && <Badge variant="outline" className="text-xs"><Shield className="h-3 w-3 mr-1" />Secured</Badge>}
-                            {ep.notify_on_receive && <Badge variant="outline" className="text-xs"><Bell className="h-3 w-3 mr-1" />Notifying</Badge>}
-                          </div>
-                          {ep.description && <p className="text-sm text-muted-foreground mt-1">{ep.description}</p>}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => {
-                              setEndpointFilterId(ep.endpoint_id);
-                              setActiveTab("requests");
-                            }}
-                          >
-                            <Eye className="h-4 w-4 mr-1" /> Requests
-                            <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{requestCountByEndpoint(ep.endpoint_id)}</Badge>
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => openEndpointConfig(ep)}>
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => deleteEndpoint(ep.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+            {/* Filters */}
+            {endpoints.length > 0 && (() => {
+              const allFolders = [...new Set(endpoints.map(e => e.folder).filter(Boolean))] as string[];
+              const allTags = [...new Set(endpoints.flatMap(e => e.tags || []))];
+              
+              const filteredEndpoints = endpoints.filter(ep => {
+                if (endpointFolderFilter !== "all" && (ep.folder || "") !== endpointFolderFilter) return false;
+                if (endpointTagFilter !== "all" && !(ep.tags || []).includes(endpointTagFilter)) return false;
+                if (endpointSearch) {
+                  const q = endpointSearch.toLowerCase();
+                  if (!(ep.name || "").toLowerCase().includes(q) && !(ep.description || "").toLowerCase().includes(q) && !ep.endpoint_id.toLowerCase().includes(q)) return false;
+                }
+                return true;
+              });
+
+              // Group by folder
+              const grouped: Record<string, typeof endpoints> = {};
+              filteredEndpoints.forEach(ep => {
+                const folder = ep.folder || "Uncategorized";
+                if (!grouped[folder]) grouped[folder] = [];
+                grouped[folder].push(ep);
+              });
+              const folderKeys = Object.keys(grouped).sort((a, b) => a === "Uncategorized" ? 1 : b === "Uncategorized" ? -1 : a.localeCompare(b));
+
+              return (
+                <>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <div className="relative flex-1 min-w-[200px] max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search endpoints..."
+                        value={endpointSearch}
+                        onChange={(e) => setEndpointSearch(e.target.value)}
+                        className="pl-9 h-9"
+                      />
+                    </div>
+                    {allFolders.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                        <select
+                          value={endpointFolderFilter}
+                          onChange={(e) => setEndpointFolderFilter(e.target.value)}
+                          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="all">All Folders</option>
+                          {allFolders.map(f => <option key={f} value={f}>{f}</option>)}
+                          <option value="">Uncategorized</option>
+                        </select>
                       </div>
-                      {/* URL row */}
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs bg-muted px-2 py-1.5 rounded flex-1 truncate font-mono">
-                          {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/webhook-capture/${ep.endpoint_id}`}
-                        </code>
-                        <Button variant="outline" size="sm" onClick={() => copyUrl(ep.endpoint_id)}>
-                          <Copy className="h-4 w-4" />
-                        </Button>
+                    )}
+                    {allTags.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                        <select
+                          value={endpointTagFilter}
+                          onChange={(e) => setEndpointTagFilter(e.target.value)}
+                          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="all">All Tags</option>
+                          {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {folderKeys.map(folder => (
+                    <div key={folder} className="space-y-2">
+                      {(folderKeys.length > 1 || folder !== "Uncategorized") && (
+                        <div className="flex items-center gap-2 pt-2">
+                          <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="text-sm font-medium text-muted-foreground">{folder}</h3>
+                          <Badge variant="secondary" className="text-xs">{grouped[folder].length}</Badge>
+                        </div>
+                      )}
+                      <div className="grid gap-2">
+                        {grouped[folder].map(ep => (
+                          <EndpointCard
+                            key={ep.id}
+                            endpoint={ep}
+                            requestCount={requestCountByEndpoint(ep.endpoint_id)}
+                            onViewRequests={() => { setEndpointFilterId(ep.endpoint_id); setActiveTab("requests"); }}
+                            onConfigure={() => openEndpointConfig(ep)}
+                            onDelete={() => deleteEndpoint(ep.id)}
+                            onCopyUrl={() => copyUrl(ep.endpoint_id)}
+                            onUpdated={loadEndpoints}
+                            allTags={allTags}
+                            allFolders={allFolders}
+                          />
+                        ))}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {endpoints.length === 0 && <p className="text-muted-foreground text-center py-8">No endpoints yet. Create one above to get started.</p>}
-            </div>
+                  ))}
+                  {filteredEndpoints.length === 0 && <p className="text-muted-foreground text-center py-8">No endpoints match your filters.</p>}
+                </>
+              );
+            })()}
+            {endpoints.length === 0 && <p className="text-muted-foreground text-center py-8">No endpoints yet. Create one above to get started.</p>}
           </TabsContent>
 
           {/* Forwards / Retry Queue tab */}
