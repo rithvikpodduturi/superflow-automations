@@ -422,7 +422,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main tabs */}
-        <Tabs defaultValue="requests" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
