@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.webhook-forward]
 verify_jwt = false
+
+[functions.push-to-sheets]
+verify_jwt = false

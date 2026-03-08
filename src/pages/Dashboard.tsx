@@ -508,6 +508,9 @@ const Dashboard = () => {
 
             {/* Notification Channels */}
             <NotificationChannels channels={channels} userId={user.id} onRefresh={loadChannels} />
+
+            {/* Google Sheets */}
+            <GoogleSheetsConfig userId={user.id} />
           </TabsContent>
         </Tabs>
 
