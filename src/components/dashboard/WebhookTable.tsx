@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Eye, Search, Download, Send, ChevronLeft, ChevronRight, Calendar, Code, Sparkles } from "lucide-react";
+import { Eye, Search, Download, ChevronLeft, ChevronRight, Code, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { SmartWebhookView } from "./SmartWebhookView";
+import { WebhookReplayDialog } from "./WebhookReplayDialog";
 
 interface WebhookRequest {
   id: string;
