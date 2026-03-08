@@ -80,7 +80,10 @@ interface NotificationChannel {
 const Dashboard = () => {
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
   const [requests, setRequests] = useState<WebhookRequest[]>([]);
-  const [newEndpoint, setNewEndpoint] = useState({ name: "", description: "" });
+  const [newEndpoint, setNewEndpoint] = useState({ name: "", description: "", folder: "", tags: "" });
+  const [endpointFolderFilter, setEndpointFolderFilter] = useState<string>("all");
+  const [endpointTagFilter, setEndpointTagFilter] = useState<string>("all");
+  const [endpointSearch, setEndpointSearch] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfig | null>(null);
   const [smtpForm, setSmtpForm] = useState({
