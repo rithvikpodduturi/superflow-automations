@@ -367,10 +367,15 @@ const Admin = () => {
                           <TableCell>
                             <div>
                               <p className="font-medium">{u.full_name || "Unnamed User"}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{u.user_id.slice(0, 8)}...</p>
-                              <p className="text-xs text-muted-foreground">
-                                Joined {new Date(u.created_at).toLocaleDateString()}
-                              </p>
+                              {u.email && <p className="text-xs text-muted-foreground">{u.email}</p>}
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  {u.role}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground">
+                                  Joined {new Date(u.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
