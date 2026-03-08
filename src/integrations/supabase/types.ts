@@ -526,6 +526,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_get_platform_analytics: {
+        Args: { time_range_hours?: number }
+        Returns: {
+          avg_response_time_ms: number
+          banned_users: number
+          failed_forwards: number
+          successful_forwards: number
+          total_endpoints: number
+          total_forwards: number
+          total_users: number
+          total_webhooks: number
+          webhooks_in_range: number
+        }[]
+      }
+      admin_get_user_stats: {
+        Args: never
+        Returns: {
+          channel_count: number
+          endpoint_count: number
+          user_id: string
+          webhook_count: number
+          webhook_count_today: number
+        }[]
+      }
+      admin_get_webhook_volume: {
+        Args: { time_range_hours?: number }
+        Returns: {
+          bucket: string
+          count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -119,7 +119,7 @@ const Dashboard = () => {
         .channel("webhook-updates")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "webhooks" }, (payload) => {
           const newReq = payload.new as WebhookRequest;
-          if (userRole === "super_admin" || newReq.user_id === user.id) {
+          if (newReq.user_id === user.id) {
             if (isPaused) {
               pausedQueueRef.current.push(newReq);
             } else {
@@ -179,17 +179,13 @@ const Dashboard = () => {
 
   const loadEndpoints = async () => {
     if (!user) return;
-    let query = (supabase as any).from("webhook_endpoints").select("*").order("created_at", { ascending: false });
-    if (userRole !== "super_admin") query = query.eq("user_id", user.id);
-    const { data } = await query;
+    const { data } = await (supabase as any).from("webhook_endpoints").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
     setEndpoints(data || []);
   };
 
   const loadRequests = async () => {
     if (!user) return;
-    let query = (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false }).limit(500);
-    if (userRole !== "super_admin") query = query.eq("user_id", user.id);
-    const { data } = await query;
+    const { data } = await (supabase as any).from("webhooks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(500);
     setRequests(data || []);
   };
 
@@ -199,9 +195,7 @@ const Dashboard = () => {
     let from = 0;
     const batchSize = 1000;
     while (true) {
-      let query = (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false }).range(from, from + batchSize - 1);
-      if (userRole !== "super_admin") query = query.eq("user_id", user.id);
-      const { data } = await query;
+      const { data } = await (supabase as any).from("webhooks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).range(from, from + batchSize - 1);
       if (!data || data.length === 0) break;
       allData.push(...data);
       if (data.length < batchSize) break;
@@ -376,7 +370,7 @@ const Dashboard = () => {
         </div>
 
         {userRole === "super_admin" && (
-          <Alert><AlertDescription>Super admin mode — viewing all data across users.</AlertDescription></Alert>
+          <Alert><AlertDescription>Super admin mode — access the Admin Panel for platform analytics. Your dashboard shows only your own data.</AlertDescription></Alert>
         )}
 
         {/* Stats cards */}
