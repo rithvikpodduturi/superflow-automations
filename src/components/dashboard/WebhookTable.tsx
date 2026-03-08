@@ -39,6 +39,8 @@ interface Props {
   endpoints: WebhookEndpoint[];
   newRequestIds?: Set<string>;
   onExportAll?: () => Promise<WebhookRequest[]>;
+  activeEndpointFilter?: string | null;
+  onClearEndpointFilter?: () => void;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -53,7 +55,7 @@ const ALL_COLUMNS = [
 
 type ColumnKey = typeof ALL_COLUMNS[number]["key"];
 
-export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll }: Props) {
+export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll, activeEndpointFilter, onClearEndpointFilter }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [endpointFilter, setEndpointFilter] = useState<string>("all");
@@ -203,6 +205,14 @@ export function WebhookTable({ requests, endpoints, newRequestIds, onExportAll }
   return (
     <Card>
       <CardHeader>
+        {activeEndpointFilter && (
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="secondary" className="text-sm">
+              Filtered by endpoint: {endpoints.find(e => e.endpoint_id === activeEndpointFilter)?.name || activeEndpointFilter}
+            </Badge>
+            <Button variant="ghost" size="sm" onClick={onClearEndpointFilter}>✕ Clear filter</Button>
+          </div>
+        )}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle>Webhook Requests ({filtered.length}){selectedIds.size > 0 && ` · ${selectedIds.size} selected`}</CardTitle>
           <div className="flex gap-2 flex-wrap">

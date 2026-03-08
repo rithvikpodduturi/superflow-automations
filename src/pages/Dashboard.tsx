@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Trash2, LogOut, User, Mail, Settings, Activity, BarChart3, Shield, Bell, HeartPulse, RefreshCw } from "lucide-react";
+import { Copy, Plus, Trash2, LogOut, User, Mail, Settings, Activity, BarChart3, Shield, Bell, HeartPulse, RefreshCw, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -94,6 +94,10 @@ const Dashboard = () => {
     api_key: "",
     notify_on_receive: false,
   });
+
+  // Tab & filter state
+  const [activeTab, setActiveTab] = useState("requests");
+  const [endpointFilterId, setEndpointFilterId] = useState<string | null>(null);
 
   // Live feed state
   const [isLiveConnected, setIsLiveConnected] = useState(false);
@@ -422,7 +426,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main tabs */}
-        <Tabs defaultValue="requests" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
@@ -435,7 +439,14 @@ const Dashboard = () => {
 
           {/* Requests tab */}
           <TabsContent value="requests">
-            <WebhookTable requests={requests} endpoints={endpoints} newRequestIds={newRequestIds} onExportAll={fetchAllRequests} />
+            <WebhookTable
+              requests={endpointFilterId ? requests.filter(r => r.url_path?.includes(endpointFilterId)) : requests}
+              endpoints={endpoints}
+              newRequestIds={newRequestIds}
+              onExportAll={fetchAllRequests}
+              activeEndpointFilter={endpointFilterId}
+              onClearEndpointFilter={() => setEndpointFilterId(null)}
+            />
           </TabsContent>
 
           {/* Endpoints tab */}
@@ -459,42 +470,56 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            <div className="space-y-3">
+            <div className="grid gap-3">
               {endpoints.map((ep) => (
                 <Card key={ep.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{ep.name}</h3>
-                          <Badge variant={ep.is_active ? "default" : "secondary"}>{ep.is_active ? "Active" : "Inactive"}</Badge>
-                          {ep.api_key && <Badge variant="outline"><Shield className="h-3 w-3 mr-1" />Secured</Badge>}
-                          {ep.notify_on_receive && <Badge variant="outline"><Bell className="h-3 w-3 mr-1" />Notifying</Badge>}
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-3">
+                      {/* Top row: name, badges, actions */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold truncate">{ep.name}</h3>
+                            <Badge variant={ep.is_active ? "default" : "secondary"} className="text-xs">{ep.is_active ? "Active" : "Inactive"}</Badge>
+                            {ep.api_key && <Badge variant="outline" className="text-xs"><Shield className="h-3 w-3 mr-1" />Secured</Badge>}
+                            {ep.notify_on_receive && <Badge variant="outline" className="text-xs"><Bell className="h-3 w-3 mr-1" />Notifying</Badge>}
+                          </div>
+                          {ep.description && <p className="text-sm text-muted-foreground mt-1">{ep.description}</p>}
                         </div>
-                        {ep.description && <p className="text-sm text-muted-foreground">{ep.description}</p>}
-                        <div className="flex items-center gap-2 mt-2">
-                          <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
-                            {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/webhook-capture/${ep.endpoint_id}`}
-                          </code>
-                          <Button variant="outline" size="sm" onClick={() => copyUrl(ep.endpoint_id)}><Copy className="h-4 w-4" /></Button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              setEndpointFilterId(ep.endpoint_id);
+                              setActiveTab("requests");
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" /> Requests
+                            <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{requestCountByEndpoint(ep.endpoint_id)}</Badge>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => openEndpointConfig(ep)}>
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => deleteEndpoint(ep.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {requestCountByEndpoint(ep.endpoint_id)} requests captured
-                        </p>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEndpointConfig(ep)}>
-                          <Settings className="h-4 w-4 mr-1" /> Configure
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => deleteEndpoint(ep.id)}>
-                          <Trash2 className="h-4 w-4" />
+                      {/* URL row */}
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-muted px-2 py-1.5 rounded flex-1 truncate font-mono">
+                          {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/webhook-capture/${ep.endpoint_id}`}
+                        </code>
+                        <Button variant="outline" size="sm" onClick={() => copyUrl(ep.endpoint_id)}>
+                          <Copy className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
-              {endpoints.length === 0 && <p className="text-muted-foreground text-center py-8">No endpoints yet.</p>}
+              {endpoints.length === 0 && <p className="text-muted-foreground text-center py-8">No endpoints yet. Create one above to get started.</p>}
             </div>
           </TabsContent>
 
