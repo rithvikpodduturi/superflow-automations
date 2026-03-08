@@ -25,6 +25,7 @@ import { WebhookTransforms } from "@/components/dashboard/WebhookTransforms";
 import { LiveFeedIndicator } from "@/components/dashboard/LiveFeedIndicator";
 import { RetryQueue } from "@/components/dashboard/RetryQueue";
 import { HealthMonitoring } from "@/components/dashboard/HealthMonitoring";
+import { EndpointCard } from "@/components/dashboard/EndpointCard";
 
 interface WebhookEndpoint {
   id: string;
