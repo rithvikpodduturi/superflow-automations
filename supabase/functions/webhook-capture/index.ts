@@ -243,6 +243,42 @@ serve(async (req) => {
       sendNotifications(supabase, endpoint, endpointId, req, url, contentType)
     }
 
+    // Auto-push to Google Sheets if configured
+    try {
+      const { data: sheetsConfig } = await supabase
+        .from('google_sheets_config')
+        .select('*')
+        .eq('user_id', endpoint.user_id)
+        .eq('is_active', true)
+        .eq('auto_push', true)
+        .single()
+
+      if (sheetsConfig) {
+        const pushUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-to-sheets`
+        // Fire and forget — get the latest webhook
+        const { data: latestWebhook } = await supabase
+          .from('webhooks')
+          .select('id')
+          .eq('user_id', endpoint.user_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (latestWebhook) {
+          fetch(pushUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ webhook_ids: [latestWebhook.id] }),
+          }).catch(err => console.error('Auto push-to-sheets error:', err))
+        }
+      }
+    } catch (err) {
+      console.error('Sheets auto-push check error:', err)
+    }
+
     // Return custom response if configured
     const responseHeaders: Record<string, string> = { ...corsHeaders, 'Content-Type': 'application/json' }
     if (endpoint.response_headers && typeof endpoint.response_headers === 'object') {
