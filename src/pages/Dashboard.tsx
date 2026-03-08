@@ -95,6 +95,10 @@ const Dashboard = () => {
     notify_on_receive: false,
   });
 
+  // Tab & filter state
+  const [activeTab, setActiveTab] = useState("requests");
+  const [endpointFilterId, setEndpointFilterId] = useState<string | null>(null);
+
   // Live feed state
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
