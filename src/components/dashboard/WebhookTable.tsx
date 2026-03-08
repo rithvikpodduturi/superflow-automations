@@ -39,6 +39,8 @@ interface Props {
   endpoints: WebhookEndpoint[];
   newRequestIds?: Set<string>;
   onExportAll?: () => Promise<WebhookRequest[]>;
+  activeEndpointFilter?: string | null;
+  onClearEndpointFilter?: () => void;
 }
 
 const ITEMS_PER_PAGE = 20;
