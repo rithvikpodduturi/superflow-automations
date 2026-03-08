@@ -337,7 +337,7 @@ const Admin = () => {
                       <TableHead className="text-center">Webhooks</TableHead>
                       <TableHead className="text-center">Channels</TableHead>
                       <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-center">Limits</TableHead>
+                      <TableHead className="text-center">Rate Limits</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
