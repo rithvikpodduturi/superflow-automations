@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      google_sheets_config: {
+        Row: {
+          auto_push: boolean
+          created_at: string
+          id: string
+          is_active: boolean
+          service_account_key: string
+          sheet_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_push?: boolean
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          service_account_key: string
+          sheet_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_push?: boolean
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          service_account_key?: string
+          sheet_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_channels: {
         Row: {
           channel_name: string | null

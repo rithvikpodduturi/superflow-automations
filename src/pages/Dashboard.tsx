@@ -20,6 +20,7 @@ import { WebhookTable } from "@/components/dashboard/WebhookTable";
 import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
 import { NotificationChannels } from "@/components/dashboard/NotificationChannels";
 import { IntegrationTemplates } from "@/components/dashboard/IntegrationTemplates";
+import { GoogleSheetsConfig } from "@/components/dashboard/GoogleSheetsConfig";
 
 interface WebhookEndpoint {
   id: string;
@@ -507,6 +508,9 @@ const Dashboard = () => {
 
             {/* Notification Channels */}
             <NotificationChannels channels={channels} userId={user.id} onRefresh={loadChannels} />
+
+            {/* Google Sheets */}
+            <GoogleSheetsConfig userId={user.id} />
           </TabsContent>
         </Tabs>
 
