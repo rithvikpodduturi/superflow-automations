@@ -293,11 +293,11 @@ const Dashboard = () => {
                 <Shield className="h-4 w-4 mr-2" /> Admin Panel
               </Button>
             )}
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span className="text-sm text-muted-foreground hidden md:inline">{user.email}</span>
-              {userRole && <Badge variant="secondary">{userRole}</Badge>}
-            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate("/profile")}>
+              <User className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">{user.email}</span>
+              {userRole && <Badge variant="secondary" className="ml-1">{userRole}</Badge>}
+            </Button>
             <Button variant="outline" onClick={async () => { await signOut(); navigate("/"); }}>
               <LogOut className="h-4 w-4 mr-2" /> Sign Out
             </Button>

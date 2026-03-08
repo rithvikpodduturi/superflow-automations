@@ -272,26 +272,12 @@ export function WebhookTable({ requests, endpoints }: Props) {
                                 </>
                               )}
 
-                              {/* Forward/Replay */}
-                              <div className="border-t pt-4">
-                                <Label className="text-sm font-semibold">Forward / Replay</Label>
-                                <div className="flex gap-2 mt-2">
-                                  <Input
-                                    placeholder="https://your-server.com/webhook"
-                                    value={forwardUrl}
-                                    onChange={(e) => setForwardUrl(e.target.value)}
-                                    className="flex-1"
-                                  />
-                                  <Button
-                                    onClick={() => forwardWebhook(request.id)}
-                                    disabled={forwarding || !forwardUrl}
-                                    size="sm"
-                                  >
-                                    <Send className="h-4 w-4 mr-1" />
-                                    {forwarding ? "Sending..." : "Forward"}
-                                  </Button>
-                                </div>
-                              </div>
+                              <WebhookReplayDialog
+                                webhookId={request.id}
+                                originalMethod={request.method}
+                                originalHeaders={request.headers}
+                                originalBody={request.body}
+                              />
                             </div>
                           </DialogContent>
                         </Dialog>
