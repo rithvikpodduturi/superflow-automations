@@ -119,7 +119,7 @@ const Dashboard = () => {
         .channel("webhook-updates")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "webhooks" }, (payload) => {
           const newReq = payload.new as WebhookRequest;
-          if (userRole === "super_admin" || newReq.user_id === user.id) {
+          if (newReq.user_id === user.id) {
             if (isPaused) {
               pausedQueueRef.current.push(newReq);
             } else {
